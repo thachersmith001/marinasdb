@@ -86,7 +86,8 @@ with open('marina_data.csv', 'w', newline='') as file:
         phone_number_elem = soup.find('div', class_='col-7 col-md-8')
         phone_number = phone_number_elem.find('a', class_='phone').text if phone_number_elem and phone_number_elem.find('a', class_='phone') else ''
 
-                website_url = website_url_elem.find('a', target='_new')['href'] if website_url_elem and website_url_elem.find('a', target='_new') else ''
+        website_url_elem = soup.find('div', class_='col-7 col-md-8')
+        website_url = website_url_elem.find('a', target='_new')['href'] if website_url_elem and website_url_elem.find('a', target='_new') else ''
 
         manager_elem = soup.find('td', string='Manager:')
         manager = manager_elem.find_next('td').text if manager_elem else ''
