@@ -2,8 +2,11 @@ import os
 import csv
 import boto3
 from botocore.exceptions import NoCredentialsError
-import requests
-from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
 
 
 # AWS S3 upload function
@@ -49,39 +52,69 @@ download_from_aws('marinasdatabase', 'urls.csv', 'urls.csv')
 
 # Read URLs from CSV
 with open('urls.csv', 'r') as f:
-    reader = csv.reader(f)
-    urls = list(reader)
+  reader = csv.reader(f)
+  urls = list(reader)
+
+# Set up Selenium
+webdriver_service = Service(ChromeDriverManager().install())
+chrome_options = Options()
+chrome_options.add_argument(
+  "--headless")  # Ensure GUI is off when running on server
+driver = webdriver.Chrome(service=webdriver_service, options=chrome_options)
 
 # Open the output CSV file
 with open('marina_data.csv', 'w', newline='') as file:
-    writer = csv.writer(file)
-    # Write the headers
+  writer = csv.writer(file)
+  # Write the headers
+  writer.writerow([
+    "Marina Name", "Phone Number", "Zip Code", "Total Slips",
+    "Transient Slips", "Daily Rate", "Weekly Rate", "Monthly Rate",
+    "Annual Rate"
+  ])
+
+  for url in urls:
+    url = url[0].lstrip('\ufeff')
+    driver.get(url)
+
+    # Extracting data
+    marina_name = driver.find_element(By.CSS_SELECTOR,
+                                      'h1').text if driver.find_element(
+                                        By.CSS_SELECTOR, 'h1') else 'N/A'
+    phone_number = driver.find_element(By.CSS_SELECTOR,
+                                       'a.phone').text if driver.find_element(
+                                         By.CSS_SELECTOR, 'a.phone') else 'N/A'
+    zip_code = driver.find_element(
+      By.XPATH, '//span[text()="Zip:"]/following-sibling::span'
+    ).text if driver.find_element(
+      By.XPATH, '//span[text()="Zip:"]/following-sibling::span') else 'N/A'
+    total_slips = driver.find_element(
+      By.XPATH, '//span[text()="Total Slips:"]/following-sibling::span'
+    ).text if driver.find_element(
+      By.XPATH,
+      '//span[text()="Total Slips:"]/following-sibling::span') else 'N/A'
+    transient_slips = driver.find_element(
+      By.XPATH, '//span[text()="Transient Slips:"]/following-sibling::span'
+    ).text if driver.find_element(
+      By.XPATH,
+      '//span[text()="Transient Slips:"]/following-sibling::span') else 'N/A'
+    daily_rate = driver.find_element(
+      By.XPATH, '//span[text()="Daily:"]/following-sibling::span'
+    ).text if driver.find_element(
+      By.XPATH, '//span[text()="Daily:"]/following-sibling::span') else 'N/A'
+    weekly_rate = 'N/A'  # Weekly rate is not provided on the page
+    monthly_rate = driver.find_element(
+      By.XPATH, '//span[text()="Monthly:"]/following-sibling::span'
+    ).text if driver.find_element(
+      By.XPATH, '//span[text()="Monthly:"]/following-sibling::span') else 'N/A'
+    annual_rate = driver.find_element(
+      By.XPATH, '//span[text()="Annual:"]/following-sibling::span'
+    ).text if driver.find_element(
+      By.XPATH, '//span[text()="Annual:"]/following-sibling::span') else 'N/A'
+
+    # Write the data to the CSV
     writer.writerow([
-        "Marina Name", "Phone Number", "Zip Code", "Total Slips", "Transient Slips",
-        "Daily Rate", "Weekly Rate", "Monthly Rate", "Annual Rate"
+      marina_name, phone_number, zip_code, total_slips, transient_slips,
+      daily_rate, weekly_rate, monthly_rate, annual_rate
     ])
 
-    for url in urls:
-        url = url[0].lstrip('\ufeff')
-        response = requests.get(url)
-        soup = BeautifulSoup(response.text, 'html.parser')
-
-        # Extracting data
-        marina_name = soup.title.text.split('|')[0].strip() if soup.title else 'N/A'
-        phone_number = soup.find('a', {'class': 'phone'}).text if soup.find('a', {'class': 'phone'}) else 'N/A'
-        zip_code = soup.find('span', text='Zip:').find_next_sibling('span').text if soup.find('span', text='Zip:') else 'N/A'
-        total_slips = soup.find('span', text='Total Slips:').find_next_sibling('span').text if soup.find('span', text='Total Slips:') else 'N/A'
-        transient_slips = soup.find('span', text='Transient Slips:').find_next_sibling('span').text if soup.find('span', text='Transient Slips:') else 'N/A'
-        daily_rate = soup.find('span', text='Daily:').find_next_sibling('span').text if soup.find('span', text='Daily:') else 'N/A'
-        weekly_rate = 'N/A'  # Weekly rate is not provided on the page
-        monthly_rate = soup.find('span', text='Monthly:').find_next_sibling('span').text if soup.find('span', text='Monthly:') else 'N/A'
-        annual_rate = soup.find('span', text='Annual:').find_next_sibling('span').text if soup.find('span', text='Annual:') else 'N/A'
-
-        # Write the data to the CSV
-        writer.writerow([
-            marina_name, phone_number, zip_code, total_slips, transient_slips,
-            daily_rate, weekly_rate, monthly_rate, annual_rate
-        ])
-
-# Upload the CSV to AWS S3
 upload_to_aws('marina_data.csv', 'marinasdatabase', 'marina_data.csv')
