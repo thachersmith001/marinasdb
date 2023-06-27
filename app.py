@@ -2,49 +2,46 @@ import os
 import csv
 import boto3
 from botocore.exceptions import NoCredentialsError
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
+import scrapy
+from scrapy.crawler import CrawlerProcess
 
 
 # AWS S3 upload function
 def upload_to_aws(local_file, bucket, s3_file):
-  s3 = boto3.client(
-    's3',
-    aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
-    aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'))
+    s3 = boto3.client(
+        's3',
+        aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+        aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'))
 
-  try:
-    s3.upload_file(local_file, bucket, s3_file)
-    print("Upload Successful")
-    return True
-  except FileNotFoundError:
-    print("The file was not found")
-    return False
-  except NoCredentialsError:
-    print("Credentials not available")
-    return False
+    try:
+        s3.upload_file(local_file, bucket, s3_file)
+        print("Upload Successful")
+        return True
+    except FileNotFoundError:
+        print("The file was not found")
+        return False
+    except NoCredentialsError:
+        print("Credentials not available")
+        return False
 
 
 # AWS S3 download function
 def download_from_aws(bucket, s3_file, local_file):
-  s3 = boto3.client(
-    's3',
-    aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
-    aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'))
+    s3 = boto3.client(
+        's3',
+        aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+        aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'))
 
-  try:
-    s3.download_file(bucket, s3_file, local_file)
-    print("Download Successful")
-    return True
-  except FileNotFoundError:
-    print("The file was not found")
-    return False
-  except NoCredentialsError:
-    print("Credentials not available")
-    return False
+    try:
+        s3.download_file(bucket, s3_file, local_file)
+        print("Download Successful")
+        return True
+    except FileNotFoundError:
+        print("The file was not found")
+        return False
+    except NoCredentialsError:
+        print("Credentials not available")
+        return False
 
 
 # Download the CSV from AWS S3
@@ -52,69 +49,34 @@ download_from_aws('marinasdatabase', 'urls.csv', 'urls.csv')
 
 # Read URLs from CSV
 with open('urls.csv', 'r') as f:
-  reader = csv.reader(f)
-  urls = list(reader)
+    reader = csv.reader(f)
+    urls = [row[0].lstrip('\ufeff') for row in reader]
 
-# Set up Selenium
-webdriver_service = Service(ChromeDriverManager().install())
-chrome_options = Options()
-chrome_options.add_argument(
-  "--headless")  # Ensure GUI is off when running on server
-driver = webdriver.Chrome(service=webdriver_service, options=chrome_options)
+class MarinaSpider(scrapy.Spider):
+    name = "marina_spider"
+    start_urls = urls
 
-# Open the output CSV file
-with open('marina_data.csv', 'w', newline='') as file:
-  writer = csv.writer(file)
-  # Write the headers
-  writer.writerow([
-    "Marina Name", "Phone Number", "Zip Code", "Total Slips",
-    "Transient Slips", "Daily Rate", "Weekly Rate", "Monthly Rate",
-    "Annual Rate"
-  ])
+    def parse(self, response):
+        yield {
+            'Marina Name': response.css('title::text').get().split('|')[0].strip(),
+            'Phone Number': response.css('a.phone::text').get(),
+            'Zip Code': response.xpath('//span[text()="Zip:"]/following-sibling::span/text()').get(),
+            'Total Slips': response.xpath('//span[text()="Total Slips:"]/following-sibling::span/text()').get(),
+            'Transient Slips': response.xpath('//span[text()="Transient Slips:"]/following-sibling::span/text()').get(),
+            'Daily Rate': response.xpath('//span[text()="Daily:"]/following-sibling::span/text()').get(),
+            'Weekly Rate': response.xpath('//span[text()="Weekly:"]/following-sibling::span/text()').get(),
+            'Monthly Rate': response.xpath('//span[text()="Monthly:"]/following-sibling::span/text()').get(),
+            'Annual Rate': response.xpath('//span[text()="Annual:"]/following-sibling::span/text()').get(),
+        }
 
-  for url in urls:
-    url = url[0].lstrip('\ufeff')
-    driver.get(url)
+process = CrawlerProcess(settings={
+    "FEEDS": {
+        'marina_data.csv': {"format": "csv"},
+    },
+})
 
-    # Extracting data
-    marina_name = driver.find_element(By.CSS_SELECTOR,
-                                      'h1').text if driver.find_element(
-                                        By.CSS_SELECTOR, 'h1') else 'N/A'
-    phone_number = driver.find_element(By.CSS_SELECTOR,
-                                       'a.phone').text if driver.find_element(
-                                         By.CSS_SELECTOR, 'a.phone') else 'N/A'
-    zip_code = driver.find_element(
-      By.XPATH, '//span[text()="Zip:"]/following-sibling::span'
-    ).text if driver.find_element(
-      By.XPATH, '//span[text()="Zip:"]/following-sibling::span') else 'N/A'
-    total_slips = driver.find_element(
-      By.XPATH, '//span[text()="Total Slips:"]/following-sibling::span'
-    ).text if driver.find_element(
-      By.XPATH,
-      '//span[text()="Total Slips:"]/following-sibling::span') else 'N/A'
-    transient_slips = driver.find_element(
-      By.XPATH, '//span[text()="Transient Slips:"]/following-sibling::span'
-    ).text if driver.find_element(
-      By.XPATH,
-      '//span[text()="Transient Slips:"]/following-sibling::span') else 'N/A'
-    daily_rate = driver.find_element(
-      By.XPATH, '//span[text()="Daily:"]/following-sibling::span'
-    ).text if driver.find_element(
-      By.XPATH, '//span[text()="Daily:"]/following-sibling::span') else 'N/A'
-    weekly_rate = 'N/A'  # Weekly rate is not provided on the page
-    monthly_rate = driver.find_element(
-      By.XPATH, '//span[text()="Monthly:"]/following-sibling::span'
-    ).text if driver.find_element(
-      By.XPATH, '//span[text()="Monthly:"]/following-sibling::span') else 'N/A'
-    annual_rate = driver.find_element(
-      By.XPATH, '//span[text()="Annual:"]/following-sibling::span'
-    ).text if driver.find_element(
-      By.XPATH, '//span[text()="Annual:"]/following-sibling::span') else 'N/A'
+process.crawl(MarinaSpider)
+process.start()  # the script will block here until the crawling is finished
 
-    # Write the data to the CSV
-    writer.writerow([
-      marina_name, phone_number, zip_code, total_slips, transient_slips,
-      daily_rate, weekly_rate, monthly_rate, annual_rate
-    ])
-
+# Upload the CSV to AWS S3
 upload_to_aws('marina_data.csv', 'marinasdatabase', 'marina_data.csv')
