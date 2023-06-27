@@ -58,8 +58,9 @@ with open('marina_data.csv', 'w', newline='') as file:
     # Write the headers
     writer.writerow([
         "Total Slips", "Transient Slips", "Daily Rate", "Monthly Rate",
-        "Annual Rate", "Phone Number", "Website URL", "Manager Name",
-        "Zip Code"
+        "Annual Rate", "Marina Manager", "Dockmaster", "Largest Vessel",
+        "Dock Type", "Approach / Dockside Depth", "Tide Range", "Liveaboard Allowed",
+        "Moorings Offered", "Payment Methods"
     ])
 
     for url in urls:
@@ -68,37 +69,27 @@ with open('marina_data.csv', 'w', newline='') as file:
         soup = BeautifulSoup(response.text, 'html.parser')
 
         # Extracting data
-        total_slips_elem = soup.find('td', string='Total Slips:')
-        total_slips = total_slips_elem.find_next('td').text if total_slips_elem else ''
-
-        transient_slips_elem = soup.find('td', string='Transient Slips:')
-        transient_slips = transient_slips_elem.find_next('td').text if transient_slips_elem else ''
-
-        daily_rate_elem = soup.find('td', string='Daily:')
-        daily_rate = daily_rate_elem.find_next('td').text if daily_rate_elem else ''
-
-        monthly_rate_elem = soup.find('td', string='Monthly:')
-        monthly_rate = monthly_rate_elem.find_next('td').text if monthly_rate_elem else ''
-
-        annual_rate_elem = soup.find('td', string='Annual:')
-        annual_rate = annual_rate_elem.find_next('td').text if annual_rate_elem else ''
-
-        phone_number_elem = soup.find('div', class_='col-7 col-md-8')
-        phone_number = phone_number_elem.find('a', class_='phone').text if phone_number_elem and phone_number_elem.find('a', class_='phone') else ''
-
-        website_url_elem = soup.find('div', class_='col-7 col-md-8')
-        website_url = website_url_elem.find('a', target='_new')['href'] if website_url_elem and website_url_elem.find('a', target='_new') else ''
-
-        manager_elem = soup.find('td', string='Manager:')
-        manager = manager_elem.find_next('td').text if manager_elem else ''
-
-        zip_code_elem = soup.find('td', string='Zip:')
-        zip_code = zip_code_elem.find_next('td').text if zip_code_elem else ''
+        total_slips = soup.find(text='Total Slips:').find_next().text
+        transient_slips = soup.find(text='Transient Slips:').find_next().text
+        daily_rate = soup.find(text='Daily:').find_next().text
+        monthly_rate = soup.find(text='Monthly:').find_next().text
+        annual_rate = soup.find(text='Annual:').find_next().text
+        marina_manager = soup.find(text='Marina Manager:').find_next().text
+        dockmaster = soup.find(text='Dockmaster:').find_next().text
+        largest_vessel = soup.find(text='Largest Vessel:').find_next().text
+        dock_type = soup.find(text='Dock Type:').find_next().text
+        approach_dockside_depth = soup.find(text='Approach / Dockside Depth:').find_next().text
+        tide_range = soup.find(text='Tide Range:').find_next().text
+        liveaboard_allowed = soup.find(text='Liveaboard Allowed:').find_next().text
+        moorings_offered = soup.find(text='Moorings Offered:').find_next().text
+        payment_methods = soup.find(text='Payment Methods:').find_next().text
 
         # Write the data to the CSV
         writer.writerow([
             total_slips, transient_slips, daily_rate, monthly_rate,
-            annual_rate, phone_number, website_url, manager, zip_code
+            annual_rate, marina_manager, dockmaster, largest_vessel,
+            dock_type, approach_dockside_depth, tide_range, liveaboard_allowed,
+            moorings_offered, payment_methods
         ])
 
 # Upload the CSV to AWS S3
