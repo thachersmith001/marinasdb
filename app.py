@@ -1,9 +1,10 @@
 import os
 import csv
 import boto3
+import re
+import requests
 from botocore.exceptions import NoCredentialsError
-import scrapy
-from scrapy.crawler import CrawlerProcess
+from bs4 import BeautifulSoup
 
 
 # AWS S3 upload function
@@ -44,50 +45,53 @@ def download_from_aws(bucket, s3_file, local_file):
         return False
 
 
+# Download the CSV from AWS S3
 download_from_aws('marinasdatabase', 'urls.csv', 'urls.csv')
 
 # Read URLs from CSV
 with open('urls.csv', 'r') as f:
     reader = csv.reader(f)
-    urls = [row[0].lstrip('\ufeff') for row in reader]
+    urls = list(reader)
 
-class MarinaSpider(scrapy.Spider):
-    name = "marina_spider"
-    start_urls = urls
+# Open the output CSV file
+with open('marina_data.csv', 'w', newline='') as file:
+    writer = csv.writer(file)
+    # Write the headers
+    writer.writerow([
+        "Marina Name", "Phone Number", "Zip Code", "Total Slips", "Transient Slips",
+        "Daily Rate", "Weekly Rate", "Monthly Rate", "Annual Rate"
+    ])
 
-    def parse(self, response):
-        marina_name = response.css('title::text').get().split('|')[0].strip()
-        phone_number = response.xpath('//span[contains(text(), "Reservations")]/following-sibling::span/a/text()').get()
-        zip_code = response.xpath('//span[contains(text(), "Zip:")]/following-sibling::span/text()').get()
+    for url in urls:
+        url = url[0].lstrip('\ufeff')
+        response = requests.get(url)
+        soup = BeautifulSoup(response.text, 'html.parser')
 
-        data_points = ['Total Slips:', 'Transient Slips:', 'Daily:', 'Weekly:', 'Monthly:', 'Annual:']
-        data_values = {data_point: 'N/A' for data_point in data_points}
+        # Extracting data
+        text = soup.get_text()
 
-        for data_point in data_points:
-            data_value = response.xpath(f'//span[contains(text(), "{data_point}")]/following-sibling::span/text()').get()
-            if data_value:
-                data_values[data_point] = data_value
+        marina_name = re.search(r'(?<=Marina Name: ).*?(?=\n)', text)
+        phone_number = re.search(r'(?<=Phone: ).*?(?=\n)', text)
+        zip_code = re.search(r'(?<=Zip: ).*?(?=\n)', text)
+        total_slips = re.search(r'(?<=Total Slips: ).*?(?=\n)', text)
+        transient_slips = re.search(r'(?<=Transient Slips: ).*?(?=\n)', text)
+        daily_rate = re.search(r'(?<=Daily: ).*?(?=\n)', text)
+        weekly_rate = re.search(r'(?<=Weekly: ).*?(?=\n)', text)
+        monthly_rate = re.search(r'(?<=Monthly: ).*?(?=\n)', text)
+        annual_rate = re.search(r'(?<=Annual: ).*?(?=\n)', text)
 
-        yield {
-            'Marina Name': marina_name,
-            'Phone Number': phone_number,
-            'Zip Code': zip_code,
-            'Total Slips': data_values['Total Slips:'],
-            'Transient Slips': data_values['Transient Slips:'],
-            'Daily Rate': data_values['Daily:'],
-            'Weekly Rate': data_values['Weekly:'],
-            'Monthly Rate': data_values['Monthly:'],
-            'Annual Rate': data_values['Annual:'],
-        }
-
-process = CrawlerProcess(settings={
-    "FEEDS": {
-        'marina_data.csv': {"format": "csv"},
-    },
-})
-
-process.crawl(MarinaSpider)
-process.start()  # the script will block here until the crawling is finished
-
+        # Write the data to the CSV
+        writer.writerow([
+            marina_name.group(0) if marina_name else 'N/A',
+            phone_number.group(0) if phone_number else 'N/A',
+            zip_code.group(0) if zip_code else 'N/A',
+            total_slips.group(0) if total_slips else 'N/A',
+            transient_slips.group(0) if transient_slips else 'N/A',
+            daily_rate.group(0) if daily_rate else 'N/A',
+            weekly_rate.group(0) if weekly_rate else 'N/A',
+            monthly_rate.group(0) if monthly_rate else 'N/A',
+            annual_rate.group(0) if annual_rate else 'N/A',
+        ])
+      
 # Upload the CSV to AWS S3
 upload_to_aws('marina_data.csv', 'marinasdatabase', 'marina_data.csv')
