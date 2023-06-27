@@ -56,16 +56,28 @@ class MarinaSpider(scrapy.Spider):
     start_urls = urls
 
     def parse(self, response):
+        marina_name = response.css('title::text').get().split('|')[0].strip()
+        phone_number = response.xpath('//span[contains(text(), "Reservations")]/following-sibling::span/a/text()').get()
+        zip_code = response.xpath('//span[contains(text(), "Zip:")]/following-sibling::span/text()').get()
+
+        data_points = ['Total Slips:', 'Transient Slips:', 'Daily:', 'Weekly:', 'Monthly:', 'Annual:']
+        data_values = {data_point: 'N/A' for data_point in data_points}
+
+        for data_point in data_points:
+            data_value = response.xpath(f'//span[contains(text(), "{data_point}")]/following-sibling::span/text()').get()
+            if data_value:
+                data_values[data_point] = data_value
+
         yield {
-            'Marina Name': response.css('title::text').get().split('|')[0].strip(),
-            'Phone Number': response.xpath('//span[contains(text(), "Reservations")]/following-sibling::span/a/text()').get(),
-            'Zip Code': response.xpath('//span[contains(text(), "Zip:")]/following-sibling::span/text()').get(),
-            'Total Slips': response.xpath('//span[contains(text(), "Total Slips:")]/following-sibling::span/text()').get(),
-            'Transient Slips': response.xpath('//span[contains(text(), "Transient Slips:")]/following-sibling::span/text()').get(),
-            'Daily Rate': response.xpath('//span[contains(text(), "Daily:")]/following-sibling::span/text()').get(),
-            'Weekly Rate': response.xpath('//span[contains(text(), "Weekly:")]/following-sibling::span/text()').get(),
-            'Monthly Rate': response.xpath('//span[contains(text(), "Monthly:")]/following-sibling::span/text()').get(),
-            'Annual Rate': response.xpath('//span[contains(text(), "Annual:")]/following-sibling::span/text()').get(),
+            'Marina Name': marina_name,
+            'Phone Number': phone_number,
+            'Zip Code': zip_code,
+            'Total Slips': data_values['Total Slips:'],
+            'Transient Slips': data_values['Transient Slips:'],
+            'Daily Rate': data_values['Daily:'],
+            'Weekly Rate': data_values['Weekly:'],
+            'Monthly Rate': data_values['Monthly:'],
+            'Annual Rate': data_values['Annual:'],
         }
 
 process = CrawlerProcess(settings={
