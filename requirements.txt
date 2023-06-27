@@ -1,4 +1,4 @@
 requests
 beautifulsoup4
 boto3
-scrapy
+autoscraper==1.1.12

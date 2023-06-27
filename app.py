@@ -1,10 +1,9 @@
 import os
 import csv
 import boto3
-import re
-import requests
 from botocore.exceptions import NoCredentialsError
-from bs4 import BeautifulSoup
+from autoscraper import AutoScraper
+
 
 
 # AWS S3 upload function
@@ -50,49 +49,34 @@ download_from_aws('marinasdatabase', 'urls.csv', 'urls.csv')
 
 # Read URLs from CSV
 with open('urls.csv', 'r') as f:
-  reader = csv.reader(f)
-  urls = list(reader)
+    reader = csv.reader(f)
+    urls = list(reader)
+
+# Define a list of sample data to train the scraper
+sample_data = ['Bohicket Marina & Market', '+1 (843) 768-1280', '29455', '200', '25', '$3.50 per ft.', 'N/A', '$35.00 per ft.', '$19.50 per ft.']
+
+# Create a new AutoScraper
+scraper = AutoScraper()
+
+# Train the scraper on the sample data
+scraper.build('https://www.waterwayguide.com/marina/bohicket-marina-and-yacht-club', sample_data)
 
 # Open the output CSV file
 with open('marina_data.csv', 'w', newline='') as file:
-  writer = csv.writer(file)
-  # Write the headers
-  writer.writerow([
-    "Marina Name", "Phone Number", "Zip Code", "Total Slips",
-    "Transient Slips", "Daily Rate", "Weekly Rate", "Monthly Rate",
-    "Annual Rate"
-  ])
-
-  for url in urls:
-    url = url[0].lstrip('\ufeff')
-    response = requests.get(url)
-    soup = BeautifulSoup(response.text, 'html.parser')
-
-    # Extracting data
-    text = soup.get_text()
-
-    marina_name = re.search(r'(?<=Marina Name: ).*?(?=\n)', text)
-    phone_number = re.search(r'(?<=Phone: ).*?(?=\n)', text)
-    zip_code = re.search(r'(?<=Zip: ).*?(?=\n)', text)
-    total_slips = re.search(r'(?<=Total Slips: ).*?(?=\n)', text)
-    transient_slips = re.search(r'(?<=Transient Slips: ).*?(?=\n)', text)
-    daily_rate = re.search(r'(?<=Daily: ).*?(?=\n)', text)
-    weekly_rate = re.search(r'(?<=Weekly: ).*?(?=\n)', text)
-    monthly_rate = re.search(r'(?<=Monthly: ).*?(?=\n)', text)
-    annual_rate = re.search(r'(?<=Annual: ).*?(?=\n)', text)
-
-    # Write the data to the CSV
+    writer = csv.writer(file)
+    # Write the headers
     writer.writerow([
-      marina_name.group(0) if marina_name else 'N/A',
-      phone_number.group(0) if phone_number else 'N/A',
-      zip_code.group(0) if zip_code else 'N/A',
-      total_slips.group(0) if total_slips else 'N/A',
-      transient_slips.group(0) if transient_slips else 'N/A',
-      daily_rate.group(0) if daily_rate else 'N/A',
-      weekly_rate.group(0) if weekly_rate else 'N/A',
-      monthly_rate.group(0) if monthly_rate else 'N/A',
-      annual_rate.group(0) if annual_rate else 'N/A',
+        "Marina Name", "Phone Number", "Zip Code", "Total Slips",
+        "Transient Slips", "Daily Rate", "Weekly Rate", "Monthly Rate",
+        "Annual Rate"
     ])
+
+    for url in urls:
+        url = url[0].lstrip('\ufeff')
+        # Use the scraper to extract data from the URL
+        results = scraper.get_result_similar(url, grouped=False)
+        # Write the data to the CSV
+        writer.writerow(results)
 
 # Upload the CSV to AWS S3
 upload_to_aws('marina_data.csv', 'marinasdatabase', 'marina_data.csv')
