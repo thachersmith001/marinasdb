@@ -44,7 +44,6 @@ def download_from_aws(bucket, s3_file, local_file):
         return False
 
 
-# Download the CSV from AWS S3
 download_from_aws('marinasdatabase', 'urls.csv', 'urls.csv')
 
 # Read URLs from CSV
@@ -59,14 +58,14 @@ class MarinaSpider(scrapy.Spider):
     def parse(self, response):
         yield {
             'Marina Name': response.css('title::text').get().split('|')[0].strip(),
-            'Phone Number': response.css('a.phone::text').get(),
-            'Zip Code': response.xpath('//span[text()="Zip:"]/following-sibling::span/text()').get(),
-            'Total Slips': response.xpath('//span[text()="Total Slips:"]/following-sibling::span/text()').get(),
-            'Transient Slips': response.xpath('//span[text()="Transient Slips:"]/following-sibling::span/text()').get(),
-            'Daily Rate': response.xpath('//span[text()="Daily:"]/following-sibling::span/text()').get(),
-            'Weekly Rate': response.xpath('//span[text()="Weekly:"]/following-sibling::span/text()').get(),
-            'Monthly Rate': response.xpath('//span[text()="Monthly:"]/following-sibling::span/text()').get(),
-            'Annual Rate': response.xpath('//span[text()="Annual:"]/following-sibling::span/text()').get(),
+            'Phone Number': response.xpath('//span[contains(text(), "Reservations")]/following-sibling::span/a/text()').get(),
+            'Zip Code': response.xpath('//span[contains(text(), "Zip:")]/following-sibling::span/text()').get(),
+            'Total Slips': response.xpath('//span[contains(text(), "Total Slips:")]/following-sibling::span/text()').get(),
+            'Transient Slips': response.xpath('//span[contains(text(), "Transient Slips:")]/following-sibling::span/text()').get(),
+            'Daily Rate': response.xpath('//span[contains(text(), "Daily:")]/following-sibling::span/text()').get(),
+            'Weekly Rate': response.xpath('//span[contains(text(), "Weekly:")]/following-sibling::span/text()').get(),
+            'Monthly Rate': response.xpath('//span[contains(text(), "Monthly:")]/following-sibling::span/text()').get(),
+            'Annual Rate': response.xpath('//span[contains(text(), "Annual:")]/following-sibling::span/text()').get(),
         }
 
 process = CrawlerProcess(settings={
