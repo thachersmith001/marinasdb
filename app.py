@@ -4,6 +4,7 @@ import boto3
 import re
 import requests
 import openai
+import html2text
 from botocore.exceptions import NoCredentialsError
 
 # AWS S3 upload function
@@ -47,10 +48,15 @@ def extract_data(page_content):
     # Initialize the OpenAI API with your API key
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
+    # Convert the HTML content to plaintext
+    h = html2text.HTML2Text()
+    h.ignore_links = True
+    plaintext = h.handle(page_content)
+
     # Use the OpenAI API to extract the necessary data from the page content
     response = openai.Completion.create(
       engine="text-davinci-003",
-      prompt=page_content,
+      prompt=plaintext,
       temperature=0.5,
       max_tokens=200
     )
