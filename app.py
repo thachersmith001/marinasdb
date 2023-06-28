@@ -1,9 +1,13 @@
 import os
 import csv
 import boto3
+import requests
+from bs4 import BeautifulSoup
+import spacy
 from botocore.exceptions import NoCredentialsError
-from autoscraper import AutoScraper
 
+# Load the spaCy model
+nlp = spacy.load('en_core_web_sm')
 
 # AWS S3 upload function
 def upload_to_aws(local_file, bucket, s3_file):
@@ -48,41 +52,31 @@ download_from_aws('marinasdatabase', 'urls.csv', 'urls.csv')
 
 # Read URLs from CSV
 with open('urls.csv', 'r') as f:
-  reader = csv.reader(f)
-  urls = list(reader)
-
-# Define a list of sample data to train the scraper
-sample_data = [
-  'Bohicket Marina & Market', '29455', '$3.50 per ft.', '$35.00 per ft.',
-  '$19.50 per ft.', '200', '25', 'Yes', 'Yes', 'Shelter Cove Marina', '29928',
-  '$3.00 per ft.', '$18.00 per ft.', '$18.00 per ft.', '178', '30', 'Yes',
-  'Yes', 'Harbour Town Yacht Basin', '29928', '$3.25/ft Day',
-  '$3.00/ft Weekly', '', '100', '', 'Yes', 'No'
-]
-
-# Create a new AutoScraper
-scraper = AutoScraper()
-
-# Train the scraper on the sample data
-scraper.build(
-  'https://www.waterwayguide.com/marina/bohicket-marina-and-yacht-club',
-  sample_data)
+    reader = csv.reader(f)
+    urls = list(reader)
 
 # Open the output CSV file
 with open('marina_data.csv', 'w', newline='') as file:
-  writer = csv.writer(file)
-  # Write the headers
-  writer.writerow([
-    "Marina Name", "Zip Code", "Daily Rate", "Weekly Rate", "Monthly Rate",
-    "Total Slips", "Transient Slips", "Fuel", "Repairs"
-  ])
+    writer = csv.writer(file)
+    # Write the headers
+    writer.writerow([
+        "Marina Name", "Zip Code", "Daily Rate", "Weekly Rate", "Monthly Rate",
+        "Total Slips", "Transient Slips", "Fuel", "Repairs"
+    ])
 
-  for url in urls:
-    url = url[0].lstrip('\ufeff')
-    # Use the scraper to extract data from the URL
-    results = scraper.get_result_similar(url, grouped=False)
-    # Write the data to the CSV
-    writer.writerow(results)
+    for url in urls:
+        url = url[0].lstrip('\ufeff')
+        # Make a request to the website
+        r = requests.get(url)
+        # Use the 'html.parser' to parse the page
+        soup = BeautifulSoup(r.content, 'html.parser')
+        # Extract the text from the page
+        text = soup.get_text()
+        # Use the NER model to extract entities
+        doc = nlp(text)
+        entities = [ent.text for ent in doc.ents]
+        # Write the entities to the CSV
+        writer.writerow(entities)
 
 # Upload the CSV to AWS S3
 upload_to_aws('marina_data.csv', 'marinasdatabase', 'marina_data.csv')
