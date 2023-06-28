@@ -80,11 +80,11 @@ def extract_data(page_content):
   prompt += "- Annual Rate\n"
   prompt += "- Total Slips\n"
   prompt += "- Transient Slips\n"
-  prompt += "- Fuel \n"
-  prompt += "- Repairs\n"
+  prompt += "- Fuel (Return Y/N) \n"
+  prompt += "- Repairs (Return Y/N) \n"
   prompt += "- Phone Number\n"
-  prompt += "- Latitude\n"
-  prompt += "- Longitude\n"
+  prompt += "- Latitude (convert to DMS)\n"
+  prompt += "- Longitude (convert to DMS)\n"
   prompt += "- Max Vessel Length\n"
 
   # Combine the prompt and plaintext content
@@ -122,7 +122,7 @@ with open('urls.csv', 'r') as f:
 with open('marina_data.csv', 'w', newline='') as file:
   writer = csv.writer(file)
 
-  for url in urls:
+for url in urls:
     url = url[0].lstrip('\ufeff')
     # Use requests to get the content of the page
     response = requests.get(url)
@@ -130,38 +130,47 @@ with open('marina_data.csv', 'w', newline='') as file:
     # Use the OpenAI API to extract data from the URL
     results = extract_data(content)
 
+    # Print the results for debugging
+    print("Results:")
+    print(results)
+
     # Extract the required values from the results string using regular expressions
-    marina_name = re.search(r"Marina Name: (.+)", results).group(1)
-    zip_code = re.search(r"Zip Code: (.+)", results).group(1)
-    daily_rate = re.search(r"Daily Rate: (.+)", results).group(1)
-    weekly_rate = re.search(r"Weekly Rate: (.+)", results).group(1)
-    monthly_rate = re.search(r"Monthly Rate: (.+)", results).group(1)
-    annual_rate = re.search(r"Annual Rate: (.+)", results).group(1)
-    total_slips = re.search(r"Total Slips: (.+)", results).group(1)
-    transient_slips = re.search(r"Transient Slips: (.+)", results).group(1)
-    fuel = re.search(r"Fuel: (.+)", results).group(1)
-    repairs = re.search(r"Repairs: (.+)", results).group(1)
-    phone_number = re.search(r"Phone Number: (.+)", results).group(1)
-    latitude = re.search(r"Latitude: (.+)", results).group(1)
-    longitude = re.search(r"Longitude: (.+)", results).group(1)
-    max_vessel_length = re.search(r"Max Vessel Length: (.+)", results).group(1)
+    marina_name_match = re.search(r"Marina Name: (.+)", results)
+    marina_name = marina_name_match.group(1) if marina_name_match else ""
+    zip_code_match = re.search(r"Zip Code: (.+)", results)
+    zip_code = zip_code_match.group(1) if zip_code_match else ""
+    daily_rate_match = re.search(r"Daily Rate: (.+)", results)
+    daily_rate = daily_rate_match.group(1) if daily_rate_match else ""
+    weekly_rate_match = re.search(r"Weekly Rate: (.+)", results)
+    weekly_rate = weekly_rate_match.group(1) if weekly_rate_match else ""
+    monthly_rate_match = re.search(r"Monthly Rate: (.+)", results)
+    monthly_rate = monthly_rate_match.group(1) if monthly_rate_match else ""
+    annual_rate_match = re.search(r"Annual Rate: (.+)", results)
+    annual_rate = annual_rate_match.group(1) if annual_rate_match else ""
+    total_slips_match = re.search(r"Total Slips: (.+)", results)
+    total_slips = total_slips_match.group(1) if total_slips_match else ""
+    transient_slips_match = re.search(r"Transient Slips: (.+)", results)
+    transient_slips = transient_slips_match.group(1) if transient_slips_match else ""
+    fuel_match = re.search(r"Fuel: (.+)", results)
+    fuel = fuel_match.group(1) if fuel_match else ""
+    repairs_match = re.search(r"Repairs: (.+)", results)
+    repairs = repairs_match.group(1) if repairs_match else ""
+    phone_number_match = re.search(r"Phone Number: (.+)", results)
+    phone_number = phone_number_match.group(1) if phone_number_match else ""
+    latitude_match = re.search(r"Latitude: (.+)", results)
+    latitude = latitude_match.group(1) if latitude_match else ""
+    longitude_match = re.search(r"Longitude: (.+)", results)
+    longitude = longitude_match.group(1) if longitude_match else ""
+    max_vessel_length_match = re.search(r"Max Vessel Length: (.+)", results)
+    max_vessel_length = max_vessel_length_match.group(1) if max_vessel_length_match else ""
 
     # Write the extracted data to the CSV
     writer.writerow([
-      marina_name.split(": ", 1)[1].strip(),
-      zip_code.split(": ", 1)[1].strip(),
-      daily_rate.split(": ", 1)[1].strip(),
-      weekly_rate.split(": ", 1)[1].strip(),
-      monthly_rate.split(": ", 1)[1].strip(),
-      annual_rate.split(": ", 1)[1].strip(),
-      total_slips.split(": ", 1)[1].strip(),
-      transient_slips.split(": ", 1)[1].strip(),
-      fuel.split(": ", 1)[1].strip(),
-      repairs.split(": ", 1)[1].strip(),
-      phone_number.split(": ", 1)[1].strip(),
-      latitude.split(": ", 1)[1].strip(),
-      longitude.split(": ", 1)[1].strip(),
-      max_vessel_length.split(": ", 1)[1].strip()
+        marina_name.strip(), zip_code.strip(), daily_rate.strip(),
+        weekly_rate.strip(), monthly_rate.strip(), annual_rate.strip(),
+        total_slips.strip(), transient_slips.strip(), fuel.strip(),
+        repairs.strip(), phone_number.strip(), latitude.strip(),
+        longitude.strip(), max_vessel_length.strip()
     ])
 
 # Upload the CSV to AWS S3
