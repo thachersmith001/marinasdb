@@ -70,7 +70,7 @@ def extract_data(page_content):
     max_input_tokens = 4096
     max_completion_tokens = 4096
 
-    # Reduce the prompt length
+    # Adjusted prompt for extracting specific data points
     prompt = "Extract the following data from the page:\n"
     prompt += "- Marina Name\n"
     prompt += "- Zip Code\n"
@@ -121,12 +121,6 @@ with open('urls.csv', 'r') as f:
 # Open the output CSV file
 with open('marina_data.csv', 'w', newline='') as file:
     writer = csv.writer(file)
-    # Write the headers
-    writer.writerow([
-        "Marina Name", "Zip Code", "Daily Rate", "Weekly Rate", "Monthly Rate",
-        "Annual Rate", "Total Slips", "Transient Slips", "Fuel", "Repairs",
-        "Phone Number", "Latitude", "Longitude", "Max Vessel Length"
-    ])
 
     for url in urls:
         url = url[0].lstrip('\ufeff')
@@ -136,7 +130,7 @@ with open('marina_data.csv', 'w', newline='') as file:
         # Use the OpenAI API to extract data from the URL
         results = extract_data(content)
 
-        # Extract the required values from the results string
+        # Extract the required values from the results string using regular expressions
         marina_name = re.search(r"Marina Name: (.+)", results).group(1)
         zip_code = re.search(r"Zip Code: (.+)", results).group(1)
         daily_rate = re.search(r"Daily Rate: (.+)", results).group(1)
@@ -154,20 +148,11 @@ with open('marina_data.csv', 'w', newline='') as file:
 
         # Write the extracted data to the CSV
         writer.writerow([
-            marina_name.strip().split(": ")[1],
-            zip_code.strip().split(": ")[1],
-            daily_rate.strip().split(": ")[1],
-            weekly_rate.strip().split(": ")[1],
-            monthly_rate.strip().split(": ")[1],
-            annual_rate.strip().split(": ")[1],
-            total_slips.strip().split(": ")[1],
-            transient_slips.strip().split(": ")[1],
-            fuel.strip().split(": ")[1],
-            repairs.strip().split(": ")[1],
-            phone_number.strip().split(": ")[1],
-            latitude.strip().split(": ")[1],
-            longitude.strip().split(": ")[1],
-            max_vessel_length.strip().split(": ")[1]
+            marina_name.split(": ")[1], zip_code.split(": ")[1], daily_rate.split(": ")[1],
+            weekly_rate.split(": ")[1], monthly_rate.split(": ")[1], annual_rate.split(": ")[1],
+            total_slips.split(": ")[1], transient_slips.split(": ")[1], fuel.split(": ")[1],
+            repairs.split(": ")[1], phone_number.split(": ")[1], latitude.split(": ")[1],
+            longitude.split(": ")[1], max_vessel_length.split(": ")[1]
         ])
 
 # Upload the CSV to AWS S3
