@@ -81,7 +81,7 @@ def extract_data(page_content):
     prompt += "- Total Slips\n"
     prompt += "- Transient Slips (return N/A if not found)\n"
     prompt += "- Does the Marina Sell Fuel (Return Y for yes and N for no or if fuel information is not found) \n"
-    prompt += "- Repairs (Return Y for yes and N for no) \n"
+    prompt += "- Does the Marina Offer Repairs (Return Y for yes and N for no) \n"
     prompt += "- Phone Number\n"
     prompt += "- Latitude (convert to DMS)\n"
     prompt += "- Longitude (convert to DMS)\n"
