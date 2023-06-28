@@ -52,7 +52,7 @@ def truncate_prompt(prompt, max_tokens):
     truncated_prompt = " ".join(truncated_prompt_tokens)
     return truncated_prompt
 
-# Function to extract data from the page using OpenAI API
+# Function to extract data from the page using OpenAI API (GPT-3.5-turbo)
 def extract_data(page_content):
     # Initialize the OpenAI API with your API key
     openai.api_key = os.environ.get('OPENAI_API_KEY')
@@ -63,8 +63,8 @@ def extract_data(page_content):
     plaintext = h.handle(page_content)
 
     # Set the maximum tokens for input and completion
-    max_input_tokens = 4000
-    max_completion_tokens = 1000
+    max_input_tokens = 4096
+    max_completion_tokens = 4096
 
     # Reduce the prompt length
     prompt = "Extract the following data from the page:\n"
@@ -91,7 +91,7 @@ def extract_data(page_content):
 
     # Use the OpenAI API to extract the necessary data from the page content
     response = openai.Completion.create(
-        engine="text-davinci-003",
+        engine="gpt-3.5-turbo-0613",
         prompt=input_text,
         temperature=0.5,
         max_tokens=max_completion_tokens,
