@@ -138,41 +138,39 @@ with open('marina_data.csv', 'w', newline='') as file:
 
         # Extract the required values from the results string using regular expressions
         marina_name_match = re.search(r"Marina Name: (.+)", results)
-        marina_name = marina_name_match.group(1) if marina_name_match else ""
-        zip_code_match = re.search(r"Zip Code: (.+)", results)
-        zip_code = zip_code_match.group(1) if zip_code_match else ""
-        daily_rate_match = re.search(r"Daily Rate: (.+)", results)
-        daily_rate = daily_rate_match.group(1) if daily_rate_match else ""
-        weekly_rate_match = re.search(r"Weekly Rate: (.+)", results)
-        weekly_rate = weekly_rate_match.group(1) if weekly_rate_match else ""
-        monthly_rate_match = re.search(r"Monthly Rate: (.+)", results)
-        monthly_rate = monthly_rate_match.group(1) if monthly_rate_match else ""
+        marina_name = marina_name_match.group(1).strip() if marina_name_match else ""
+        zip_code_match = re.search(r"Zip Code: (\d{5})", results)
+        zip_code = zip_code_match.group(1).strip() if zip_code_match else ""
+        daily_rate_match = re.search(r"Daily Rate Per Foot: (.+)", results)
+        daily_rate = daily_rate_match.group(1).strip() if daily_rate_match else ""
+        weekly_rate_match = re.search(r"Weekly Rate Per Foot: (.+)", results)
+        weekly_rate = weekly_rate_match.group(1).strip() if weekly_rate_match else ""
+        monthly_rate_match = re.search(r"Monthly Rate Per Foot: (.+)", results)
+        monthly_rate = monthly_rate_match.group(1).strip() if monthly_rate_match else ""
         annual_rate_match = re.search(r"Annual Rate: (.+)", results)
-        annual_rate = annual_rate_match.group(1) if annual_rate_match else ""
+        annual_rate = annual_rate_match.group(1).strip() if annual_rate_match else ""
         total_slips_match = re.search(r"Total Slips: (.+)", results)
-        total_slips = total_slips_match.group(1) if total_slips_match else ""
+        total_slips = total_slips_match.group(1).strip() if total_slips_match else ""
         transient_slips_match = re.search(r"Transient Slips: (.+)", results)
-        transient_slips = transient_slips_match.group(1) if transient_slips_match else ""
-        fuel_match = re.search(r"Fuel: (.+)", results)
-        fuel = fuel_match.group(1) if fuel_match else ""
-        repairs_match = re.search(r"Repairs: (.+)", results)
-        repairs = repairs_match.group(1) if repairs_match else ""
+        transient_slips = transient_slips_match.group(1).strip() if transient_slips_match else ""
+        fuel_match = re.search(r"Does the Marina Sell Fuel: (.+)", results)
+        fuel = fuel_match.group(1).strip() if fuel_match else ""
+        repairs_match = re.search(r"Does the Marina Offer Repairs: (.+)", results)
+        repairs = repairs_match.group(1).strip() if repairs_match else ""
         phone_number_match = re.search(r"Phone Number: (.+)", results)
-        phone_number = phone_number_match.group(1) if phone_number_match else ""
+        phone_number = phone_number_match.group(1).strip() if phone_number_match else ""
         latitude_match = re.search(r"Latitude: (.+)", results)
-        latitude = latitude_match.group(1) if latitude_match else ""
+        latitude = latitude_match.group(1).strip() if latitude_match else ""
         longitude_match = re.search(r"Longitude: (.+)", results)
-        longitude = longitude_match.group(1) if longitude_match else ""
-        max_vessel_length_match = re.search(r"Max Vessel Length: (.+)", results)
-        max_vessel_length = max_vessel_length_match.group(1) if max_vessel_length_match else ""
+        longitude = longitude_match.group(1).strip() if longitude_match else ""
+        max_vessel_length_match = re.search(r"Max Vessel Length: (\d+)", results)
+        max_vessel_length = max_vessel_length_match.group(1).strip() if max_vessel_length_match else ""
 
         # Write the extracted data to the CSV
         writer.writerow([
-            marina_name.strip(), zip_code.strip(), daily_rate.strip(),
-            weekly_rate.strip(), monthly_rate.strip(), annual_rate.strip(),
-            total_slips.strip(), transient_slips.strip(), fuel.strip(),
-            repairs.strip(), phone_number.strip(), latitude.strip(),
-            longitude.strip(), max_vessel_length.strip()
+            marina_name, zip_code, daily_rate, weekly_rate, monthly_rate,
+            annual_rate, total_slips, transient_slips, fuel, repairs,
+            phone_number, latitude, longitude, max_vessel_length
         ])
 
 # Upload the CSV to AWS S3
