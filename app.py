@@ -71,7 +71,7 @@ def extract_data(page_content):
   max_completion_tokens = 4096
 
   # Adjusted prompt for extracting specific data points
-  prompt = "Extract the following data from the page:\n"
+  prompt = "Extract the following data from the page: Return only the values, without any additional text or the prompt text\n"
   prompt += "- Marina Name\n"
   prompt += "- Zip Code\n"
   prompt += "- Daily Rate\n"
@@ -80,8 +80,8 @@ def extract_data(page_content):
   prompt += "- Annual Rate\n"
   prompt += "- Total Slips\n"
   prompt += "- Transient Slips\n"
-  prompt += "- Fuel (Return Y/N) \n"
-  prompt += "- Repairs (Return Y/N) \n"
+  prompt += "- Fuel (Return Y for yes and N for no) \n"
+  prompt += "- Repairs (Return Y for yes and N for no) \n"
   prompt += "- Phone Number\n"
   prompt += "- Latitude (convert to DMS)\n"
   prompt += "- Longitude (convert to DMS)\n"
