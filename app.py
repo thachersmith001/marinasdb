@@ -136,10 +136,6 @@ with open('marina_data.csv', 'w', newline='') as file:
         # Use the OpenAI API to extract data from the URL
         results = extract_data(content)
 
-        # Print the results for debugging
-        print("Results:")
-        print(results)
-
         # Extract the required values from the results string using regular expressions
         marina_name_match = re.search(r"Marina Name: (.+)", results)
         marina_name = marina_name_match.group(1) if marina_name_match else ""
