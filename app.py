@@ -154,9 +154,20 @@ with open('marina_data.csv', 'w', newline='') as file:
 
         # Write the extracted data to the CSV
         writer.writerow([
-            marina_name, zip_code, daily_rate, weekly_rate, monthly_rate,
-            annual_rate, total_slips, transient_slips, fuel, repairs,
-            phone_number, latitude, longitude, max_vessel_length
+            marina_name.strip().split(": ")[1],
+            zip_code.strip().split(": ")[1],
+            daily_rate.strip().split(": ")[1],
+            weekly_rate.strip().split(": ")[1],
+            monthly_rate.strip().split(": ")[1],
+            annual_rate.strip().split(": ")[1],
+            total_slips.strip().split(": ")[1],
+            transient_slips.strip().split(": ")[1],
+            fuel.strip().split(": ")[1],
+            repairs.strip().split(": ")[1],
+            phone_number.strip().split(": ")[1],
+            latitude.strip().split(": ")[1],
+            longitude.strip().split(": ")[1],
+            max_vessel_length.strip().split(": ")[1]
         ])
 
 # Upload the CSV to AWS S3
