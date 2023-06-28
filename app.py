@@ -63,8 +63,8 @@ def extract_data(page_content):
     plaintext = h.handle(page_content)
 
     # Set the maximum tokens for input and completion
-    max_input_tokens = 12000
-    max_completion_tokens = 2000
+    max_input_tokens = 4000
+    max_completion_tokens = 1000
 
     # Reduce the prompt length
     prompt = "Extract the following data from the page:\n"
@@ -94,7 +94,9 @@ def extract_data(page_content):
         engine="text-davinci-003",
         prompt=input_text,
         temperature=0.5,
-        max_tokens=max_completion_tokens
+        max_tokens=max_completion_tokens,
+        n=1,  # Only retrieve one completion
+        stop=None,  # Let the model complete the prompt
     )
 
     # Parse the response to extract the necessary data
@@ -128,9 +130,6 @@ with open('marina_data.csv', 'w', newline='') as file:
         results = extract_data(content)
         # Write the data to the CSV
         writer.writerow(results.split('\n'))
-
-# Close the CSV file
-file.close()
 
 # Upload the CSV to AWS S3
 upload_to_aws('marina_data.csv', 'marinasdatabase', 'marina_data.csv')
