@@ -43,6 +43,15 @@ def download_from_aws(bucket, s3_file, local_file):
         print("Credentials not available")
         return False
 
+# Function to truncate the prompt to stay under the input token limit
+def truncate_prompt(prompt, max_tokens):
+    prompt_tokens = prompt.split(" ")
+    if len(prompt_tokens) <= max_tokens:
+        return prompt
+    truncated_prompt_tokens = prompt_tokens[:max_tokens]
+    truncated_prompt = " ".join(truncated_prompt_tokens)
+    return truncated_prompt
+
 # Function to extract data from the page using OpenAI API
 def extract_data(page_content):
     # Initialize the OpenAI API with your API key
@@ -52,6 +61,10 @@ def extract_data(page_content):
     h = html2text.HTML2Text()
     h.ignore_links = True
     plaintext = h.handle(page_content)
+
+    # Set the maximum tokens for input and completion
+    max_input_tokens = 12000
+    max_completion_tokens = 2000
 
     # Reduce the prompt length
     prompt = "Extract the following data from the page:\n"
@@ -73,12 +86,15 @@ def extract_data(page_content):
     # Combine the prompt and plaintext content
     input_text = prompt + plaintext
 
+    # Truncate the prompt if it exceeds the maximum input token limit
+    input_text = truncate_prompt(input_text, max_input_tokens)
+
     # Use the OpenAI API to extract the necessary data from the page content
     response = openai.Completion.create(
         engine="text-davinci-003",
         prompt=input_text,
         temperature=0.5,
-        max_tokens=2000
+        max_tokens=max_completion_tokens
     )
 
     # Parse the response to extract the necessary data
