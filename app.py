@@ -55,10 +55,10 @@ def extract_data(page_content):
 
     # Use the OpenAI API to extract the necessary data from the page content
     response = openai.Completion.create(
-      engine="text-davinci-003",
-      prompt=plaintext,
-      temperature=0.5,
-      max_tokens=200
+        engine="text-davinci-003",
+        prompt=plaintext,
+        temperature=0.5,
+        max_tokens=200
     )
 
     # Parse the response to extract the necessary data
@@ -73,26 +73,30 @@ with open('urls.csv', 'r') as f:
     reader = csv.reader(f)
     urls = list(reader)
 
-# Open the output CSV file
-with open('marina_data.csv', 'w', newline='') as file:
-    writer = csv.writer(file)
-    # Write the headers
-    writer.writerow([
-        "Marina Name", "Zip Code", "Daily Rate", "Weekly Rate", "Monthly Rate", "Total Slips", "Transient Slips", "Fuel", "Repairs"
-    ])
+# Initialize the AWS S3 client
+s3 = boto3.client(
+    's3',
+    aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+    aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY')
+)
 
-    for url in urls:
-        url = url[0].lstrip('\ufeff')
-        # Use requests to get the content of the page
-        response = requests.get(url)
-        content = response.text
-        # Use the OpenAI API to extract data from the URL
-        results = extract_data(content)
-        # Write the data to the CSV
-        writer.writerow(results)
+# Process each URL
+for url in urls:
+    url = url[0].lstrip('\ufeff')
 
-# Close the CSV file
-file.close()
+    # Use requests to get the content of the page
+    response = requests.get(url)
+    content = response.text
+
+    # Convert the HTML content to plaintext
+    h = html2text.HTML2Text()
+    h.ignore_links = True
+    plaintext = h.handle(content)
+
+    # Save the plaintext content to AWS S3 with the filename as the URL
+    filename = re.sub(r'\W+', '', url) + '.txt'
+    s3.put_object(Body=plaintext, Bucket='marinasdatabase', Key=filename)
+    print(f"Saved plaintext content to {filename}")
 
 # Upload the CSV to AWS S3
 upload_to_aws('marina_data.csv', 'marinasdatabase', 'marina_data.csv')
