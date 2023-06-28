@@ -78,7 +78,7 @@ def extract_data(page_content):
         engine="text-davinci-003",
         prompt=input_text,
         temperature=0.5,
-        max_tokens=200
+        max_tokens=250
     )
 
     # Parse the response to extract the necessary data
@@ -98,9 +98,9 @@ with open('marina_data.csv', 'w', newline='') as file:
     writer = csv.writer(file)
     # Write the headers
     writer.writerow([
-        "Marina Name", "Zip Code", "Daily Rate", "Weekly Rate", "Monthly Rate", "Annual Rate",
-        "Total Slips", "Transient Slips", "Fuel", "Repairs", "Phone Number", "Latitude", "Longitude",
-        "Max Vessel Length"
+        "Marina Name", "Zip Code", "Daily Rate", "Weekly Rate", "Monthly Rate",
+        "Annual Rate", "Total Slips", "Transient Slips", "Fuel", "Repairs",
+        "Phone Number", "Latitude", "Longitude", "Max Vessel Length"
     ])
 
     for url in urls:
@@ -111,7 +111,7 @@ with open('marina_data.csv', 'w', newline='') as file:
         # Use the OpenAI API to extract data from the URL
         results = extract_data(content)
         # Write the data to the CSV
-        writer.writerow(results)
+        writer.writerow(results.split('\n'))
 
 # Close the CSV file
 file.close()
