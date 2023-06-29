@@ -110,8 +110,9 @@ def extract_data(page_content):
   data = response.choices[0].message.content.strip().split("\n")
   data_dict = {}
   for line in data:
-    key, value = line.split(": ")
-    data_dict[key] = value
+    if ": " in line:  # Check if the line contains the delimiter
+      key, value = line.split(": ")
+      data_dict[key] = value
   return data_dict
 
 
