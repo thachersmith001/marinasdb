@@ -35,11 +35,11 @@ data = censusdata.download('acs5', 2021,
 # Rename columns
 data.columns = ['Population', 'Median Home Value', 'Avg HH Income', 'Avg Age']
 
-# Process the index to match the counties
-data.index = data.index.map(lambda x: x.name.split(':')[1].strip().upper() if ':' in x.name else x.name.strip().upper())
+# Clean up index to keep only the county name
+data.index = data.index.map(lambda x: x.name.split(',')[0].strip().upper() if ',' in x.name else x.name.strip().upper())
 
 # Filter data for specified counties
-data = data.loc[counties]
+data = data.loc[data.index.intersection(counties)]
 
 # Save data to the output file
 data.to_csv(output_file)
