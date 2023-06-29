@@ -21,8 +21,11 @@ def dms2dd(s):
     if len(parts) > 1:
         minutes = parts[1].replace("'", "")
         try:
-            if degrees != '-':
-                return float(degrees) + float(minutes) / 60
+            if degrees != '-' and degrees != '':
+                if minutes != '':
+                    return float(degrees) + float(minutes) / 60
+                else:
+                    return float(degrees)
             else:
                 print(f"Invalid degrees value: {degrees}")
         except ValueError as e:
@@ -30,7 +33,7 @@ def dms2dd(s):
             return None
     else:
         try:
-            if degrees != '-':
+            if degrees != '-' and degrees != '':
                 return float(degrees)
             else:
                 print(f"Invalid degrees value: {degrees}")
