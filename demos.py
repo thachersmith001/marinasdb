@@ -27,30 +27,19 @@ with open(input_file, 'r') as f_in:
     next(reader)  # skip header
     counties = [row[0].strip().upper() for row in reader]
 
-# Fetch census data for 2020
-data_2020 = censusdata.download('acs5', 2020,
-    censusdata.censusgeo([('state', '12'), ('county', '*')]),  
-    ['B01003_001E'])
-
-data_2020.columns = ['Population_2020']
-data_2020.index = data_2020.index.map(lambda x: x.name.split(':')[1].strip().upper())
-
-# Fetch census data for 2021
-data_2021 = censusdata.download('acs5', 2021,
+# Fetch census data
+data = censusdata.download('acs5', 2021,
     censusdata.censusgeo([('state', '12'), ('county', '*')]),  
     ['B01003_001E', 'B25077_001E', 'B19013_001E', 'B01002_001E'])  # population, median home value, household income, median age
 
-data_2021.columns = ['Population_2021', 'Median Home Value', 'Avg HH Income', 'Avg Age']
-data_2021.index = data_2021.index.map(lambda x: x.name.split(':')[1].strip().upper())
+# Rename columns
+data.columns = ['Population', 'Median Home Value', 'Avg HH Income', 'Avg Age']
 
-# Merge data from 2020 and 2021 on the index (county names)
-data = pd.merge(data_2020, data_2021, left_index=True, right_index=True)
+# Process the index to match the counties
+data.index = data.index.map(lambda x: x.name.split(':')[1].strip().upper() if ':' in x.name else x.name.strip().upper())
 
 # Filter data for specified counties
-data = data.loc[data.index.intersection(counties)]
-
-# Calculate YOY population growth
-data['YOY Growth'] = (data['Population_2021'] - data['Population_2020']) / data['Population_2020']
+data = data.loc[counties]
 
 # Save data to the output file
 data.to_csv(output_file)
