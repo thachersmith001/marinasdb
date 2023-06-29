@@ -10,18 +10,23 @@ from botocore.exceptions import NoCredentialsError
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut, GeocoderUnavailable
 
+
 # Function to convert DMS string to decimal
 def dms_to_decimal(dms_str):
   dms_str = re.sub(r'\s', '', dms_str)
   sign = -1 if re.search('[swSW]', dms_str) else 1
   numbers = [*filter(len, re.split('\D+', dms_str, maxsplit=4))]
 
+  if len(numbers) == 0:
+    return None
+
   degree = numbers[0]
   minute = numbers[1] if len(numbers) >= 2 else '0'
   second = numbers[2] if len(numbers) >= 3 else '0'
 
   return sign * (int(degree) + float(minute) / 60 + float(second) / 3600)
-  
+
+
 # AWS S3 upload function
 def upload_to_aws(local_file, bucket, s3_file):
   s3 = boto3.client(
@@ -178,13 +183,20 @@ with open('marina_data.csv', 'w', newline='') as file:
     results = extract_data(content)
 
     # Convert the coordinates to city, state, and county
-    latitude = dms_to_decimal(results.get("Latitude", "0.0"))
-    longitude = dms_to_decimal(results.get("Longitude", "0.0"))
-    location_info = convert_to_address(latitude, longitude)
+    latitude_dms = results.get("Latitude", "0.0")
+    longitude_dms = results.get("Longitude", "0.0")
+
+    latitude = dms_to_decimal(latitude_dms) if latitude_dms != "0.0" else None
+    longitude = dms_to_decimal(
+      longitude_dms) if longitude_dms != "0.0" else None
+
+    location_info = convert_to_address(
+      latitude, longitude) if latitude and longitude else None
 
     # Write the extracted data to the CSV
     writer.writerow([
       results.get("Marina Name", ""),
+      results.get("Website", ""),  # add this line
       results.get("Zip Code", ""),
       results.get("Daily Rate Per Foot", ""),
       results.get("Weekly Rate Per Foot", ""),
@@ -198,9 +210,9 @@ with open('marina_data.csv', 'w', newline='') as file:
       results.get("Latitude", ""),
       results.get("Longitude", ""),
       results.get("Max Vessel Length", ""),
-      location_info.get("City", ""),
-      location_info.get("State", ""),
-      location_info.get("County", "")
+      location_info.get("City", "") if location_info else "",
+      location_info.get("State", "") if location_info else "",
+      location_info.get("County", "") if location_info else ""
     ])
 
     # Increment the counter and print the progress
@@ -211,7 +223,7 @@ with open('marina_data.csv', 'w', newline='') as file:
 upload_to_aws('marina_data.csv', 'marinasdatabase', 'marina_data.csv')
 
 # Stop the Heroku dyno
-os.system("heroku ps:scale worker=0 --app your-heroku-app-name")
+os.system("heroku ps:scale worker=0 --app protected-springs-13473")
 
 # Exit the program
 sys.exit()
