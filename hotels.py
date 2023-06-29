@@ -26,10 +26,20 @@ def dms2dd(s):
     # Only process minutes if we have them in the parts list.
     if len(parts) > 1:
         minutes = parts[1].replace("'", "")
-        return float(degrees) + float(minutes) / 60
+        # check if degrees is not '-'
+        if degrees != '-':
+            return float(degrees) + float(minutes) / 60
+        else:
+            # Handle error here or log error message
+            print(f"Invalid degrees value: {degrees}")
     else:
         # If no minutes part exists, just return the degrees as float.
-        return float(degrees)
+        # Also check if degrees is not '-'
+        if degrees != '-':
+            return float(degrees)
+        else:
+            # Handle error here or log error message
+            print(f"Invalid degrees value: {degrees}")
 
 def process_coordinates(s):
   coord = s.replace("N", "").replace("W", "-").strip().split(',')
