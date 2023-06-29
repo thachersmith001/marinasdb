@@ -7,6 +7,8 @@ import requests
 import openai
 import html2text
 from botocore.exceptions import NoCredentialsError
+from geopy.geocoders import Nominatim
+from geopy.exc import GeocoderTimedOut, GeocoderUnavailable
 
 
 # AWS S3 upload function
@@ -74,6 +76,7 @@ def extract_data(page_content):
   # Adjusted prompt for extracting specific data points
   prompt = "Extract the following data from the page: Return only the values, without any additional text or the prompt text\n"
   prompt += "- Marina Name\n"
+  prompt += "- Website\n"
   prompt += "- Zip Code (5 digits)\n"
   prompt += "- Daily Rate Per Foot (value in dollars, return N/A if not found)\n"
   prompt += "- Weekly Rate Per Foot (value in dollars, return N/A if not found)\n"
@@ -111,9 +114,26 @@ def extract_data(page_content):
   data_dict = {}
   for line in data:
     if ": " in line:  # Check if the line contains the delimiter
-      key, value = line.split(": ", 1)  # Split only at the first occurrence of the delimiter
+      key, value = line.split(
+        ": ", 1)  # Split only at the first occurrence of the delimiter
       data_dict[key] = value
   return data_dict
+
+
+def convert_to_address(latitude, longitude):
+  geolocator = Nominatim(user_agent="myGeocoder")
+  location = None
+  try:
+    location = geolocator.reverse([latitude, longitude], exactly_one=True)
+  except (GeocoderTimedOut, GeocoderUnavailable):
+    return {"City": "N/A", "State": "N/A", "County": "N/A"}
+
+  address = location.raw['address']
+  city = address.get('city', 'N/A')
+  state = address.get('state', 'N/A')
+  county = address.get('county', 'N/A')
+
+  return {"City": city, "State": state, "County": county}
 
 
 # Download the CSV from AWS S3
@@ -132,9 +152,10 @@ with open('marina_data.csv', 'w', newline='') as file:
   writer = csv.writer(file)
 
   writer.writerow([
-    "Marina Name", "Zip Code", "Daily Rate", "Weekly Rate", "Monthly Rate",
-    "Annual Rate", "Total Slips", "Transient Slips", "Fuel", "Repairs",
-    "Phone Number", "Latitude", "Longitude", "Max Vessel Length"
+    "Marina Name", "Website", "Zip Code", "Daily Rate", "Weekly Rate",
+    "Monthly Rate", "Annual Rate", "Total Slips", "Transient Slips", "Fuel",
+    "Repairs", "Phone Number", "Latitude", "Longitude", "Max Vessel Length",
+    "City", "State", "County"
   ])
 
   for url in urls:
@@ -144,6 +165,11 @@ with open('marina_data.csv', 'w', newline='') as file:
     content = response.text
     # Use the OpenAI API to extract data from the URL
     results = extract_data(content)
+
+    # Convert the coordinates to city, state, and county
+    latitude = float(results.get("Latitude", "0.0"))
+    longitude = float(results.get("Longitude", "0.0"))
+    location_info = convert_to_address(latitude, longitude)
 
     # Write the extracted data to the CSV
     writer.writerow([
@@ -160,7 +186,10 @@ with open('marina_data.csv', 'w', newline='') as file:
       results.get("Phone Number", ""),
       results.get("Latitude", ""),
       results.get("Longitude", ""),
-      results.get("Max Vessel Length", "")
+      results.get("Max Vessel Length", ""),
+      location_info.get("City", ""),
+      location_info.get("State", ""),
+      location_info.get("County", "")
     ])
 
     # Increment the counter and print the progress
