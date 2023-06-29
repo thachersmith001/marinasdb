@@ -1,1 +1,1 @@
-worker: python hotels.py
+worker: python zips.py
