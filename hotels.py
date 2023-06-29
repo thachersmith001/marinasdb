@@ -10,6 +10,9 @@ def dms2dd(s):
 
     parts = s.strip().split('°')
     degrees = parts[0].strip()
+    if degrees == '':
+        return None
+
     if ' ' in degrees:
         parts = degrees.split(' ')
         degrees = parts[0]
@@ -80,7 +83,8 @@ if download_file(bucket, file_name, file_name):
         for row in reader:
             if len(row) >= 2:
                 lat, lon = process_coordinates(row[0]), process_coordinates(row[1])
-                processed_rows.append([lat, lon])
+                if lat is not None and lon is not None:
+                    processed_rows.append([lat, lon])
             else:
                 print("Invalid row format: ", row)
 
