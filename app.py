@@ -111,7 +111,7 @@ def extract_data(page_content):
   data_dict = {}
   for line in data:
     if ": " in line:  # Check if the line contains the delimiter
-      key, value = line.split(": ")
+      key, value = line.split(": ", 1)  # Split only at the first occurrence of the delimiter
       data_dict[key] = value
   return data_dict
 
