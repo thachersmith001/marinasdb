@@ -43,7 +43,7 @@ def download_from_aws(bucket, s3_file, local_file):
 
 # Function to find county by zip code
 def find_county_by_zip(zip_code):
-    search = SearchEngine(simple_zipcode=True) # set simple_zipcode=False to use rich info database
+    search = SearchEngine() # No need for simple_zipcode
     zipcode = search.by_zipcode(zip_code)
     return zipcode.to_dict()['county']
 
