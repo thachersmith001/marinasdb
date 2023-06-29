@@ -3,4 +3,4 @@ botocore
 requests
 openai
 html2text
-geopy
+

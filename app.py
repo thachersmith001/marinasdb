@@ -2,24 +2,12 @@ import os
 import csv
 import sys
 import boto3
-import re
 import requests
 import openai
 import html2text
-from geopy.geocoders import Nominatim
 from botocore.exceptions import NoCredentialsError
 
 
-def get_location_from_zip(zip_code):
-  geolocator = Nominatim(user_agent="geoapiExercises")
-  try:
-    location = geolocator.geocode(zip_code)
-    if location is not None:
-      return location.address.split(", ")
-    else:
-      return ["N/A", "N/A", "N/A"]
-  except:
-    return ["N/A", "N/A", "N/A"]
 
 
 # AWS S3 upload function
@@ -84,6 +72,7 @@ def extract_data(page_content):
   prompt += "- Marina Name\n"
   prompt += "- Marina Website\n"  # Added prompt to get Marina's website
   prompt += "- Zip Code (5 digits)\n"
+  prompt += "- City\n"
   prompt += "- Daily Rate Per Foot (value in dollars, return N/A if not found)\n"
   prompt += "- Weekly Rate Per Foot (value in dollars, return N/A if not found)\n"
   prompt += "- Monthly Rate Per Foot (value in dollars, return N/A if not found)\n"
@@ -136,10 +125,9 @@ with open('marina_data.csv', 'w', newline='') as file:
   writer = csv.writer(file)
 
   writer.writerow([
-    "Marina Name", "Marina Website", "Zip Code", "City", "State", "County",
-    "Daily Rate", "Weekly Rate", "Monthly Rate", "Annual Rate", "Total Slips",
-    "Transient Slips", "Fuel", "Repairs", "Phone Number", "Latitude",
-    "Longitude", "Max Vessel Length"
+    "Marina Name", "Marina Website", "Zip Code", "City", "Daily Rate", "Weekly Rate", "Monthly Rate", 
+    "Annual Rate", "Total Slips", "Transient Slips", "Fuel", "Repairs", "Phone Number", "Latitude", "Longitude", 
+    "Max Vessel Length"
   ])
 
   for url in urls:
@@ -150,14 +138,14 @@ with open('marina_data.csv', 'w', newline='') as file:
     # Use the OpenAI API to extract data from the URL
     results = extract_data(content)
 
-    # Get city, state, and county from the zip code
-    zip_code = results.get("Zip Code", "")
-    city, state, county = get_location_from_zip(zip_code)
+
 
     # Write the extracted data to the CSV
     writer.writerow([
-      results.get("Marina Name", ""),
-      results.get("Marina Website", ""), zip_code, city, state, county,
+     results.get("Marina Name", ""),
+      results.get("Marina Website", ""),
+      results.get("Zip Code", ""),
+      results.get("City", ""),  # Added City
       results.get("Daily Rate Per Foot", ""),
       results.get("Weekly Rate Per Foot", ""),
       results.get("Monthly Rate Per Foot", ""),
