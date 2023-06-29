@@ -4,3 +4,4 @@ requests
 openai
 html2text
 uszipcode
+amadeus
