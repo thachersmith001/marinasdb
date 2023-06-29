@@ -5,3 +5,5 @@ openai
 html2text
 uszipcode
 amadeus
+pandas
+censusdata
