@@ -31,18 +31,22 @@ with open(input_file, 'r') as f_in:
 data = censusdata.download('acs5', 2021,
     censusdata.censusgeo([('state', '12'), ('county', '*')]),  
     ['B01003_001E', 'B25077_001E', 'B19013_001E', 'B01002_001E'])  # population, median home value, household income, median age
-print(data)
+
 # Rename columns
 data.columns = ['Population', 'Median Home Value', 'Avg HH Income', 'Avg Age']
 
 # Clean up index to keep only the county name
 data.index = data.index.map(lambda x: x.name.split(',')[0].strip().upper() if ',' in x.name else x.name.strip().upper())
 
-# Filter data for specified counties
-data = data.loc[data.index.intersection(counties)]
+# Filter data for specified counties and maintain input order
+ordered_data = pd.DataFrame(index=counties)
+ordered_data = ordered_data.join(data).dropna()
+
+# Change county names to title case
+ordered_data.index = ordered_data.index.map(lambda x: x.title())
 
 # Save data to the output file
-data.to_csv(output_file)
+ordered_data.to_csv(output_file)
 
 # Upload the output file to S3
 s3.upload_file(output_file, bucket, output_file)
