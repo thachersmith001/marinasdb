@@ -5,7 +5,6 @@ from botocore.exceptions import NoCredentialsError
 
 s3 = boto3.client('s3')
 
-
 def dms2dd(s):
     s = ''.join(c for c in s if c.isdigit() or c in ['-', ' ', '°', "'"])
 
@@ -46,15 +45,16 @@ def process_coordinates(s):
     coord = [c.strip() for c in coord] 
     return [dms2dd(c) for c in coord]
 
-
 def download_file(bucket, object_name, file_name):
     try:
         s3.download_file(bucket, object_name, file_name)
     except NoCredentialsError:
         print("No AWS credentials found")
         return False
+    except Exception as e:
+        print(f"Error downloading file from S3: {e}")
+        return False
     return True
-
 
 def upload_file(file_name, bucket, object_name=None):
     if object_name is None:
@@ -64,8 +64,10 @@ def upload_file(file_name, bucket, object_name=None):
     except NoCredentialsError:
         print("No AWS credentials found")
         return False
+    except Exception as e:
+        print(f"Error uploading file to S3: {e}")
+        return False
     return True
-
 
 bucket = 'marinasdatabase'
 file_name = 'coordinates.csv'
@@ -76,8 +78,11 @@ if download_file(bucket, file_name, file_name):
         reader = csv.reader(f_in)
         next(reader)  # skip header
         for row in reader:
-            lat, lon = process_coordinates(row[0]), process_coordinates(row[1])
-            processed_rows.append([lat, lon])
+            if len(row) >= 2:
+                lat, lon = process_coordinates(row[0]), process_coordinates(row[1])
+                processed_rows.append([lat, lon])
+            else:
+                print("Invalid row format: ", row)
 
     # Now write the processed rows back into the same file
     with open(file_name, 'w', newline='') as f_out:
