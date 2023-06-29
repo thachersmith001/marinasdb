@@ -9,9 +9,20 @@ s3 = boto3.client('s3')
 
 
 def dms2dd(s):
-  degrees, minutes = s.split('Â°')
-  dd = float(degrees) + float(minutes.replace("'", "")) / 60
-  return dd
+    parts = s.strip().split('°')
+    degrees = parts[0].strip()
+
+    # We should check if there's a space in the degrees part and split again if there is.
+    if ' ' in degrees:
+        parts = degrees.split(' ')
+        degrees = parts[0]
+        if len(parts) > 1:  # If there are more parts after splitting on space, add it back to parts for further processing
+            parts[1] = parts[1] + '°'
+            parts = parts[1:] + parts[2:]
+
+    minutes = parts[1].replace("'", "")
+    return float(degrees) + float(minutes) / 60
+
 
 
 def process_coordinates(s):
