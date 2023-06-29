@@ -6,25 +6,20 @@ import re
 import requests
 import openai
 import html2text
-from botocore.exceptions import NoCredentialsError
 from geopy.geocoders import Nominatim
-from geopy.exc import GeocoderTimedOut, GeocoderUnavailable
+from botocore.exceptions import NoCredentialsError
 
 
-# Function to convert DMS string to decimal
-def dms_to_decimal(dms_str):
-  dms_str = re.sub(r'\s', '', dms_str)
-  sign = -1 if re.search('[swSW]', dms_str) else 1
-  numbers = [*filter(len, re.split('\D+', dms_str, maxsplit=4))]
-
-  if len(numbers) == 0:
-    return None
-
-  degree = numbers[0]
-  minute = numbers[1] if len(numbers) >= 2 else '0'
-  second = numbers[2] if len(numbers) >= 3 else '0'
-
-  return sign * (int(degree) + float(minute) / 60 + float(second) / 3600)
+def get_location_from_zip(zip_code):
+  geolocator = Nominatim(user_agent="geoapiExercises")
+  try:
+    location = geolocator.geocode(zip_code)
+    if location is not None:
+      return location.address.split(", ")
+    else:
+      return ["N/A", "N/A", "N/A"]
+  except:
+    return ["N/A", "N/A", "N/A"]
 
 
 # AWS S3 upload function
@@ -33,7 +28,6 @@ def upload_to_aws(local_file, bucket, s3_file):
     's3',
     aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
     aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'))
-
   try:
     s3.upload_file(local_file, bucket, s3_file)
     print("Upload Successful")
@@ -52,7 +46,6 @@ def download_from_aws(bucket, s3_file, local_file):
     's3',
     aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
     aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'))
-
   try:
     s3.download_file(bucket, s3_file, local_file)
     print("Download Successful")
@@ -79,20 +72,17 @@ def truncate_prompt(prompt, max_tokens):
 def extract_data(page_content):
   # Initialize the OpenAI API with your API key
   openai.api_key = os.environ.get('OPENAI_API_KEY')
-
   # Convert the HTML content to plaintext
   h = html2text.HTML2Text()
   h.ignore_links = True
   plaintext = h.handle(page_content)
-
   # Set the maximum tokens for input and completion
   max_input_tokens = 4096
   max_completion_tokens = 4096
-
   # Adjusted prompt for extracting specific data points
   prompt = "Extract the following data from the page: Return only the values, without any additional text or the prompt text\n"
   prompt += "- Marina Name\n"
-  prompt += "- Website\n"
+  prompt += "- Marina Website\n"  # Added prompt to get Marina's website
   prompt += "- Zip Code (5 digits)\n"
   prompt += "- Daily Rate Per Foot (value in dollars, return N/A if not found)\n"
   prompt += "- Weekly Rate Per Foot (value in dollars, return N/A if not found)\n"
@@ -106,13 +96,10 @@ def extract_data(page_content):
   prompt += "- Latitude (convert to DMS)\n"
   prompt += "- Longitude (convert to DMS)\n"
   prompt += "- Max Vessel Length (return only value without units) \n"
-
   # Combine the prompt and plaintext content
   input_text = prompt + plaintext
-
   # Truncate the prompt if it exceeds the maximum input token limit
   input_text = truncate_prompt(input_text, max_input_tokens)
-
   # Use the OpenAI API to extract the necessary data from the page content
   response = openai.ChatCompletion.create(
     model="gpt-3.5-turbo-16k",
@@ -124,54 +111,35 @@ def extract_data(page_content):
       "content": input_text
     }],
   )
-
   # Parse the response to extract the necessary data
   data = response.choices[0].message.content.strip().split("\n")
   data_dict = {}
   for line in data:
     if ": " in line:  # Check if the line contains the delimiter
+      key, value = line.split(": ")
       key, value = line.split(
         ": ", 1)  # Split only at the first occurrence of the delimiter
       data_dict[key] = value
   return data_dict
 
 
-def convert_to_address(latitude, longitude):
-  geolocator = Nominatim(user_agent="myGeocoder")
-  location = None
-  try:
-    location = geolocator.reverse([latitude, longitude], exactly_one=True)
-  except (GeocoderTimedOut, GeocoderUnavailable):
-    return {"City": "N/A", "State": "N/A", "County": "N/A"}
-
-  address = location.raw['address']
-  city = address.get('city', 'N/A')
-  state = address.get('state', 'N/A')
-  county = address.get('county', 'N/A')
-
-  return {"City": city, "State": state, "County": county}
-
-
 # Download the CSV from AWS S3
 download_from_aws('marinasdatabase', 'urls.csv', 'urls.csv')
-
 # Read URLs from CSV
 with open('urls.csv', 'r') as f:
   reader = csv.reader(f)
   urls = list(reader)
-
 # Initialize a counter
 counter = 0
-
 # Open the output CSV file
 with open('marina_data.csv', 'w', newline='') as file:
   writer = csv.writer(file)
 
   writer.writerow([
-    "Marina Name", "Website", "Zip Code", "Daily Rate", "Weekly Rate",
-    "Monthly Rate", "Annual Rate", "Total Slips", "Transient Slips", "Fuel",
-    "Repairs", "Phone Number", "Latitude", "Longitude", "Max Vessel Length",
-    "City", "State", "County"
+    "Marina Name", "Marina Website", "Zip Code", "City", "State", "County",
+    "Daily Rate", "Weekly Rate", "Monthly Rate", "Annual Rate", "Total Slips",
+    "Transient Slips", "Fuel", "Repairs", "Phone Number", "Latitude",
+    "Longitude", "Max Vessel Length"
   ])
 
   for url in urls:
@@ -182,22 +150,14 @@ with open('marina_data.csv', 'w', newline='') as file:
     # Use the OpenAI API to extract data from the URL
     results = extract_data(content)
 
-    # Convert the coordinates to city, state, and county
-    latitude_dms = results.get("Latitude", "0.0")
-    longitude_dms = results.get("Longitude", "0.0")
-
-    latitude = dms_to_decimal(latitude_dms) if latitude_dms != "0.0" else None
-    longitude = dms_to_decimal(
-      longitude_dms) if longitude_dms != "0.0" else None
-
-    location_info = convert_to_address(
-      latitude, longitude) if latitude and longitude else None
+    # Get city, state, and county from the zip code
+    zip_code = results.get("Zip Code", "")
+    city, state, county = get_location_from_zip(zip_code)
 
     # Write the extracted data to the CSV
     writer.writerow([
       results.get("Marina Name", ""),
-      results.get("Website", ""),  # add this line
-      results.get("Zip Code", ""),
+      results.get("Marina Website", ""), zip_code, city, state, county,
       results.get("Daily Rate Per Foot", ""),
       results.get("Weekly Rate Per Foot", ""),
       results.get("Monthly Rate Per Foot", ""),
@@ -209,21 +169,15 @@ with open('marina_data.csv', 'w', newline='') as file:
       results.get("Phone Number", ""),
       results.get("Latitude", ""),
       results.get("Longitude", ""),
-      results.get("Max Vessel Length", ""),
-      location_info.get("City", "") if location_info else "",
-      location_info.get("State", "") if location_info else "",
-      location_info.get("County", "") if location_info else ""
+      results.get("Max Vessel Length", "")
     ])
 
     # Increment the counter and print the progress
     counter += 1
     print(f"Scraped {counter} out of {len(urls)} pages")
-
 # Upload the CSV to AWS S3
 upload_to_aws('marina_data.csv', 'marinasdatabase', 'marina_data.csv')
-
 # Stop the Heroku dyno
 os.system("heroku ps:scale worker=0 --app protected-springs-13473")
-
 # Exit the program
 sys.exit()
