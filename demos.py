@@ -25,19 +25,32 @@ s3.download_file(bucket, input_file, input_file)
 with open(input_file, 'r') as f_in:
     reader = csv.reader(f_in)
     next(reader)  # skip header
-    counties = [row[0].strip() for row in reader]
+    counties = [row[0].strip().upper() for row in reader]
 
-# Fetch census data
-data = censusdata.download('acs5', 2018,
+# Fetch census data for 2020
+data_2020 = censusdata.download('acs5', 2020,
+    censusdata.censusgeo([('state', '12'), ('county', '*')]),  
+    ['B01003_001E'])
+
+data_2020.columns = ['Population_2020']
+data_2020.index = data_2020.index.map(lambda x: x.name.split(':')[1].strip().upper())
+
+# Fetch census data for 2021
+data_2021 = censusdata.download('acs5', 2021,
     censusdata.censusgeo([('state', '12'), ('county', '*')]),  
     ['B01003_001E', 'B25077_001E', 'B19013_001E', 'B01002_001E'])  # population, median home value, household income, median age
 
-# Rename columns
-data.columns = ['Population', 'Median Home Value', 'Avg HH Income', 'Avg Age']
+data_2021.columns = ['Population_2021', 'Median Home Value', 'Avg HH Income', 'Avg Age']
+data_2021.index = data_2021.index.map(lambda x: x.name.split(':')[1].strip().upper())
 
-# Filter data for specified counties and calculate YOY growth (assumed 1% for this example)
-data = data.loc[counties]
-data['YOY Growth'] = data['Population'] * 0.01  # replace with actual growth rate calculation if available
+# Merge data from 2020 and 2021 on the index (county names)
+data = pd.merge(data_2020, data_2021, left_index=True, right_index=True)
+
+# Filter data for specified counties
+data = data.loc[data.index.intersection(counties)]
+
+# Calculate YOY population growth
+data['YOY Growth'] = (data['Population_2021'] - data['Population_2020']) / data['Population_2020']
 
 # Save data to the output file
 data.to_csv(output_file)
