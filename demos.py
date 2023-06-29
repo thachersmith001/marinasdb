@@ -31,7 +31,7 @@ with open(input_file, 'r') as f_in:
 data = censusdata.download('acs5', 2021,
     censusdata.censusgeo([('state', '12'), ('county', '*')]),  
     ['B01003_001E', 'B25077_001E', 'B19013_001E', 'B01002_001E'])  # population, median home value, household income, median age
-
+print(data)
 # Rename columns
 data.columns = ['Population', 'Median Home Value', 'Avg HH Income', 'Avg Age']
 
