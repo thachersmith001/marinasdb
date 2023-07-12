@@ -6,7 +6,7 @@ import censusdata
 from botocore.exceptions import NoCredentialsError
 
 # Specify your state
-state = 'South Carolina'
+state = 'Maryland'
 
 # Specify AWS bucket and filenames
 bucket = 'marinasdatabase'
@@ -47,3 +47,5 @@ ordered_data.to_csv(output_file)
 
 # Upload the output file to S3
 s3.upload_file(output_file, bucket, output_file)
+
+print(counties)
