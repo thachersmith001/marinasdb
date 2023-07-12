@@ -14,48 +14,29 @@ input_file = 'countydemo.csv'
 output_file = 'demo.csv'
 
 # Setup S3 client
-s3 = boto3.client(
-  's3',
-  aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
-  aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'))
+s3 = boto3.client('s3',
+    aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+    aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'))
 
 # Download the input file from S3
 s3.download_file(bucket, input_file, input_file)
 
 # Load county names from the input file
 with open(input_file, 'r') as f_in:
-  reader = csv.reader(f_in)
-  next(reader)  # skip header
-  counties = [row[0].strip().title()
-              for row in reader]  # Change county names to title case
-
-import logging
-
-# Setup logging
-logging.basicConfig(filename='app.log',
-                    filemode='w',
-                    format='%(name)s - %(levelname)s - %(message)s',
-                    level=logging.DEBUG)
-
-# Log before downloading census data
-logging.info('About to download census data for counties: %s', counties)
+    reader = csv.reader(f_in)
+    next(reader)  # skip header
+    counties = [row[0].strip().title() for row in reader]  # Change county names to title case
 
 # Fetch census data
-try:
-  data = censusdata.download(
-    'acs5', 2021, censusdata.censusgeo([('state', '24'), ('county', '*')]),
-    ['B01003_001E', 'B25077_001E', 'B19013_001E', 'B01002_001E'
-     ])  # population, median home value, household income, median age
-  logging.info('Successfully downloaded census data')
-except Exception as e:
-  logging.error('Failed to download census data: %s', e)
+data = censusdata.download('acs5', 2021,
+    censusdata.censusgeo([('state', '24'), ('county', '*')]),
+    ['B01003_001E', 'B25077_001E', 'B19013_001E', 'B01002_001E'])  # population, median home value, household income, median age
 
 # Rename columns
 data.columns = ['Population', 'Median Home Value', 'Avg HH Income', 'Avg Age']
 
 # Clean up index to keep only the county name
-data.index = data.index.map(lambda x: x.name.split(',')[0].strip().title()
-                            if ',' in x.name else x.name.strip().title())
+data.index = data.index.map(lambda x: x.name.split(',')[0].strip().title() if ',' in x.name else x.name.strip().title())
 
 # Filter data for specified counties and maintain input order
 ordered_data = pd.DataFrame(index=counties)
