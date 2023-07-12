@@ -25,7 +25,7 @@ s3.download_file(bucket, input_file, input_file)
 with open(input_file, 'r') as f_in:
     reader = csv.reader(f_in)
     next(reader)  # skip header
-    counties = [row[0].replace('  ', ' ').strip().title() for row in reader]  # Remove extra spaces and change county names to title case
+    counties = list(set([row[0].replace('  ', ' ').strip().title() for row in reader]))  # Remove extra spaces and change county names to title case, also removing duplicates using 'set'
 
 # Fetch census data
 data = censusdata.download('acs5', 2021,
