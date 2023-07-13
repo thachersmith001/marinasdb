@@ -1,97 +1,78 @@
 import os
 import csv
 import boto3
+import requests
 from botocore.exceptions import NoCredentialsError
 
-s3 = boto3.client('s3')
 
-def dms2dd(s):
-    s = ''.join(c for c in s if c.isdigit() or c in ['-', ' ', '°', "'"])
+# Function to upload file to AWS S3
+def upload_to_aws(local_file, bucket, s3_file):
+    s3 = boto3.client(
+        's3',
+        aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+        aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'))
+    try:
+        s3.upload_file(local_file, bucket, s3_file)
+        print("Upload Successful")
+        return True
+    except FileNotFoundError:
+        print("The file was not found")
+        return False
+    except NoCredentialsError:
+        print("Credentials not available")
+        return False
 
-    parts = s.strip().split('°')
-    degrees = parts[0].strip()
-    if degrees == '':
-        return None
-
-    if ' ' in degrees:
-        parts = degrees.split(' ')
-        degrees = parts[0]
-        if len(parts) > 1:
-            parts[1] = parts[1] + '°'
-            parts = parts[1:] + parts[2:]
-
-    if len(parts) > 1:
-        minutes = parts[1].replace("'", "")
-        try:
-            if degrees != '-' and degrees != '':
-                if minutes != '':
-                    return float(degrees) + float(minutes) / 60
-                else:
-                    return float(degrees)
-            else:
-                print(f"Invalid degrees value: {degrees}")
-        except ValueError as e:
-            print(f"Error converting degrees and minutes to float: {e}")
-            return None
+# Function to fetch hotels from Amadeus API
+def fetch_hotels(api_key, api_secret, latitude, longitude):
+    url = "https://api.amadeus.com/v1/shopping/hotel-offers"
+    params = {
+        "latitude": latitude,
+        "longitude": longitude,
+        "radius": 10,
+        "radiusUnit": "MILE",
+        "view": "FULL",
+        "sort": "PRICE"
+    }
+    headers = {"Authorization": "Bearer " + api_key + ":" + api_secret}
+    response = requests.get(url, params=params, headers=headers)
+    if response.status_code == 200:
+        return response.json()["data"]
     else:
-        try:
-            if degrees != '-' and degrees != '':
-                return float(degrees)
-            else:
-                print(f"Invalid degrees value: {degrees}")
-        except ValueError as e:
-            print(f"Error converting degrees to float: {e}")
-            return None
+        print("Failed to fetch hotels:", response.content)
+        return []
 
-def process_coordinates(s):
-    coord = s.replace("N", "").replace("W", "-").strip().split(',')
-    coord = [c.strip() for c in coord] 
-    return [dms2dd(c) for c in coord]
+# Function to process coordinates and fetch hotel details
+def process_coordinates(coordinates):
+    api_key = os.environ.get('AMADEUS_API_KEY')
+    api_secret = os.environ.get('AMADEUS_API_SECRET')
+    hotel_details = []
+    for coord in coordinates:
+        lat, long = coord
+        hotels = fetch_hotels(api_key, api_secret, lat, long)
+        if hotels:
+            hotels = sorted(hotels, key=lambda x: x['offers'][0]['price']['total'])
+            lowest_price = hotels[0]['offers'][0]['price']['total']
+            highest_price = hotels[-1]['offers'][0]['price']['total']
+            median_price = hotels[len(hotels)//2]['offers'][0]['price']['total']
+            highest_price_name = hotels[-1]['hotel']['name']
+            hotel_details.append((highest_price, lowest_price, median_price, highest_price_name))
+        else:
+            print("No hotels found for coordinates:", coord)
+    return hotel_details
 
-def download_file(bucket, object_name, file_name):
-    try:
-        s3.download_file(bucket, object_name, file_name)
-    except NoCredentialsError:
-        print("No AWS credentials found")
-        return False
-    except Exception as e:
-        print(f"Error downloading file from S3: {e}")
-        return False
-    return True
+def read_coordinates():
+    with open('coord.csv', 'r') as file:
+        reader = csv.reader(file)
+        return list(reader)
 
-def upload_file(file_name, bucket, object_name=None):
-    if object_name is None:
-        object_name = file_name
-    try:
-        response = s3.upload_file(file_name, bucket, object_name)
-    except NoCredentialsError:
-        print("No AWS credentials found")
-        return False
-    except Exception as e:
-        print(f"Error uploading file to S3: {e}")
-        return False
-    return True
+def main():
+    coordinates = read_coordinates()  # Read coordinates from CSV file
+    hotel_details = process_coordinates(coordinates)
+    with open('hotel_details.csv', 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Highest Price", "Lowest Price", "Median Price", "Highest Price Hotel"])
+        writer.writerows(hotel_details)
+    upload_to_aws('hotel_details.csv', 'your_bucket_name', 'hotel_details.csv')
 
-bucket = 'marinasdatabase'
-file_name = 'coordinates.csv'
-
-if download_file(bucket, file_name, file_name):
-    processed_rows = []
-    with open(file_name, 'r') as f_in:
-        reader = csv.reader(f_in)
-        next(reader)  # skip header
-        for row in reader:
-            if len(row) >= 2:
-                lat, lon = process_coordinates(row[0]), process_coordinates(row[1])
-                if lat is not None and lon is not None:
-                    processed_rows.append([lat, lon])
-            else:
-                print("Invalid row format: ", row)
-
-    # Now write the processed rows back into the same file
-    with open(file_name, 'w', newline='') as f_out:
-        writer = csv.writer(f_out)
-        writer.writerow(['Latitude', 'Longitude'])  
-        writer.writerows(processed_rows)
-
-    upload_file(file_name, bucket, file_name)
+if __name__ == "__main__":
+    main()
