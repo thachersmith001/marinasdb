@@ -6,7 +6,7 @@ import censusdata
 from botocore.exceptions import NoCredentialsError
 
 # Specify your state
-state = 'Maryland'
+state = 'New York'
 
 # Specify AWS bucket and filenames
 bucket = 'marinasdatabase'
@@ -29,7 +29,7 @@ with open(input_file, 'r') as f_in:
 
 # Fetch census data
 data = censusdata.download('acs5', 2021,
-    censusdata.censusgeo([('state', '24'), ('county', '*')]),
+    censusdata.censusgeo([('state', '36'), ('county', '*')]),
     ['B01003_001E', 'B25077_001E', 'B19013_001E', 'B01002_001E'])  # population, median home value, household income, median age
 
 # Rename columns
