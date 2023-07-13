@@ -39,6 +39,14 @@ def upload_to_aws(local_file, bucket, s3_file):
         print("Credentials not available")
         return False
 
+# Function to convert coordinates to decimal format
+def convert_to_decimal_degrees(coord):
+    # remove degree symbol, split into degrees and minutes
+    degrees, minutes = coord.replace('°', '').split('\'')[0:2]
+    # convert to decimal format
+    decimal_coord = float(degrees) + float(minutes)/60
+    return decimal_coord
+
 # Function to fetch hotels from Amadeus API
 def fetch_hotels(api_key, api_secret, latitude, longitude):
     url = "https://api.amadeus.com/v2/shopping/hotel-offers"
@@ -64,7 +72,7 @@ def process_coordinates(coordinates):
     api_secret = os.environ.get('AMADEUS_API_SECRET')
     hotel_details = []
     for coord in coordinates:
-        lat, long = coord
+        lat, long = map(convert_to_decimal_degrees, coord)
         hotels = fetch_hotels(api_key, api_secret, lat, long)
         if hotels:
             hotels = sorted(hotels, key=lambda x: x['offers'][0]['price']['total'])
