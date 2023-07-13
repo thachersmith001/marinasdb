@@ -49,6 +49,16 @@ def convert_to_decimal_degrees(coord):
 
 # Function to fetch hotels from Amadeus API
 def fetch_hotels(api_key, api_secret, latitude, longitude):
+    token_url = "https://api.amadeus.com/v1/security/oauth2/token"
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+    data = {
+        "grant_type": "client_credentials",
+        "client_id": api_key,
+        "client_secret": api_secret
+    }
+    response = requests.post(token_url, headers=headers, data=data)
+    access_token = response.json()["access_token"]
+
     url = "https://api.amadeus.com/v2/shopping/hotel-offers"
     params = {
         "latitude": latitude,
@@ -58,7 +68,7 @@ def fetch_hotels(api_key, api_secret, latitude, longitude):
         "view": "FULL",
         "sort": "PRICE"
     }
-    headers = {"Authorization": "Bearer " + api_key + ":" + api_secret}
+    headers = {"Authorization": "Bearer " + access_token}
     response = requests.get(url, params=params, headers=headers)
     if response.status_code == 200:
         return response.json()["data"]
