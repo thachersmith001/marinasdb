@@ -4,6 +4,23 @@ import boto3
 import requests
 from botocore.exceptions import NoCredentialsError
 
+# Function to download file from AWS S3
+def download_from_aws(s3_file, local_file, bucket):
+    s3 = boto3.client(
+        's3',
+        aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+        aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY')
+    )
+    try:
+        s3.download_file(bucket, s3_file, local_file)
+        print("Download Successful")
+        return True
+    except FileNotFoundError:
+        print("The file was not found")
+        return False
+    except NoCredentialsError:
+        print("Credentials not available")
+        return False
 
 # Function to upload file to AWS S3
 def upload_to_aws(local_file, bucket, s3_file):
@@ -61,18 +78,20 @@ def process_coordinates(coordinates):
     return hotel_details
 
 def read_coordinates():
-    with open('coord.csv', 'r') as file:
+    with open('coords.csv', 'r') as file:
         reader = csv.reader(file)
         return list(reader)
 
 def main():
+    bucket_name = 'marinasdatabase'
+    download_from_aws('coords.csv', 'coords.csv', bucket_name)  # Download coordinates from S3 bucket
     coordinates = read_coordinates()  # Read coordinates from CSV file
     hotel_details = process_coordinates(coordinates)
-    with open('hotel_details.csv', 'w', newline='') as file:
+    with open('hoteldata.csv', 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(["Highest Price", "Lowest Price", "Median Price", "Highest Price Hotel"])
         writer.writerows(hotel_details)
-    upload_to_aws('hotel_details.csv', 'your_bucket_name', 'hotel_details.csv')
+    upload_to_aws('hoteldata.csv', bucket_name, 'hoteldata.csv')  # Upload hotel data to S3 bucket
 
 if __name__ == "__main__":
     main()
