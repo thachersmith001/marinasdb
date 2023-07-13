@@ -8,8 +8,6 @@ import html2text
 from botocore.exceptions import NoCredentialsError
 
 
-
-
 # AWS S3 upload function
 def upload_to_aws(local_file, bucket, s3_file):
   s3 = boto3.client(
@@ -105,7 +103,6 @@ def extract_data(page_content):
   data_dict = {}
   for line in data:
     if ": " in line:  # Check if the line contains the delimiter
-      key, value = line.split(": ")
       key, value = line.split(
         ": ", 1)  # Split only at the first occurrence of the delimiter
       data_dict[key] = value
@@ -125,9 +122,10 @@ with open('marina_data.csv', 'w', newline='') as file:
   writer = csv.writer(file)
 
   writer.writerow([
-    "Marina Name", "Marina Website", "Zip Code", "City", "Daily Rate", "Weekly Rate", "Monthly Rate", 
-    "Annual Rate", "Total Slips", "Transient Slips", "Fuel", "Repairs", "Phone Number", "Latitude", "Longitude", 
-    "Max Vessel Length"
+    "Marina Name", "Marina Website", "Zip Code", "City", "Daily Rate",
+    "Weekly Rate", "Monthly Rate", "Annual Rate", "Total Slips",
+    "Transient Slips", "Fuel", "Repairs", "Phone Number", "Latitude",
+    "Longitude", "Max Vessel Length"
   ])
 
   for url in urls:
@@ -138,11 +136,9 @@ with open('marina_data.csv', 'w', newline='') as file:
     # Use the OpenAI API to extract data from the URL
     results = extract_data(content)
 
-
-
     # Write the extracted data to the CSV
     writer.writerow([
-     results.get("Marina Name", ""),
+      results.get("Marina Name", ""),
       results.get("Marina Website", ""),
       results.get("Zip Code", ""),
       results.get("City", ""),  # Added City
