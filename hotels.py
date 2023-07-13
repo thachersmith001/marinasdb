@@ -41,7 +41,7 @@ def upload_to_aws(local_file, bucket, s3_file):
 
 # Function to fetch hotels from Amadeus API
 def fetch_hotels(api_key, api_secret, latitude, longitude):
-    url = "https://api.amadeus.com/v1/shopping/hotel-offers"
+    url = "https://api.amadeus.com/v2/shopping/hotel-offers"
     params = {
         "latitude": latitude,
         "longitude": longitude,
