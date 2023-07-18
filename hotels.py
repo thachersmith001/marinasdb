@@ -8,7 +8,7 @@ from statistics import median
 # Function to convert degrees and minutes to decimal degrees
 def convert_to_decimal(coord, is_longitude=False):
   degrees, minutes = coord.split('° ')
-  decimal_degrees = float(degrees) + float(minutes.rstrip("'")) / 60
+  decimal_degrees = float(degrees) + float(minutes.rstrip("'").strip()) / 60
   # If it's longitude and in North America, make it negative
   if is_longitude:
     decimal_degrees *= -1
