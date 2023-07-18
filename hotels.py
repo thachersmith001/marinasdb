@@ -7,11 +7,32 @@ from statistics import median
 
 # Function to convert degrees and minutes to decimal degrees
 def convert_to_decimal(coord, is_longitude=False):
-  degrees, minutes = coord.split('° ')
-  decimal_degrees = float(degrees) + float(minutes.rstrip("'").strip()) / 60
+  coord = coord.strip(
+  )  # Remove any leading/trailing spaces from the entire coordinate
+  parts = coord.split('° ')
+  degrees = parts[0].strip()  # Remove any leading/trailing spaces
+
+  # Check if the coordinate includes seconds
+  if '"' in parts[1]:
+    minutes, seconds = parts[1].split("' ")
+    seconds = seconds.rstrip(
+      '"').strip()  # Remove " character and any leading/trailing spaces
+  else:
+    minutes = parts[1].rstrip(
+      "'").strip()  # Remove ' character and any leading/trailing spaces
+    seconds = "0"
+
+  try:
+    decimal_degrees = float(
+      degrees) + float(minutes) / 60 + float(seconds) / 3600
+  except ValueError:
+    print(f"Failed to convert coordinate: {coord}")
+    return None
+
   # If it's longitude and in North America, make it negative
   if is_longitude:
     decimal_degrees *= -1
+
   return decimal_degrees
 
 
