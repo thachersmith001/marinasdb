@@ -1,126 +1,115 @@
 import os
-import csv
-import boto3
+import pandas as pd
 import requests
-from botocore.exceptions import NoCredentialsError
+import boto3
+from statistics import median
 
 
-def download_from_aws(s3_file, local_file, bucket):
-    s3 = boto3.client(
-        's3',
-        aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
-        aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'))
-    try:
-        s3.download_file(bucket, s3_file, local_file)
-        print("Download Successful")
-        return True
-    except FileNotFoundError:
-        print("The file was not found")
-        return False
-    except NoCredentialsError:
-        print("Credentials not available")
-        return False
+# Function to convert degrees and minutes to decimal degrees
+def convert_to_decimal(coord, is_longitude=False):
+  degrees, minutes = coord.split('° ')
+  decimal_degrees = float(degrees) + float(minutes.rstrip("'")) / 60
+  # If it's longitude and in North America, make it negative
+  if is_longitude:
+    decimal_degrees *= -1
+  return decimal_degrees
 
 
-def upload_to_aws(local_file, bucket, s3_file):
-    s3 = boto3.client(
-        's3',
-        aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
-        aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'))
-    try:
-        s3.upload_file(local_file, bucket, s3_file)
-        print("Upload Successful")
-        return True
-    except FileNotFoundError:
-        print("The file was not found")
-        return False
-    except NoCredentialsError:
-        print("Credentials not available")
-        return False
+# Load the environment variables
+AMADEUS_API_KEY = os.getenv('AMADEUS_API_KEY')
+AMADEUS_API_SECRET = os.getenv('AMADEUS_API_SECRET')
+AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
+AWS_REGION = os.getenv('AWS_REGION')
+S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME')
 
+# Radius for the hotel search
+RADIUS_MILES = 10
 
-def fetch_hotels(api_key, api_secret, latitude, longitude):
-    token_url = "https://api.amadeus.com/v1/security/oauth2/token"
-    headers = {"Content-Type": "application/x-www-form-urlencoded"}
-    data = {
-        "grant_type": "client_credentials",
-        "client_id": api_key,
-        "client_secret": api_secret
-    }
-    response = requests.post(token_url, headers=headers, data=data)
-    access_token = response.json()["access_token"]
+# Create a session using your AWS credentials
+session = boto3.Session(aws_access_key_id=AWS_ACCESS_KEY_ID,
+                        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+                        region_name=AWS_REGION)
 
-    url = "https://api.amadeus.com/v2/shopping/hotel-offers"
-    params = {
-        "latitude": latitude,
-        "longitude": longitude,
-        "radius": 10,
-        "radiusUnit": "MILE",
-        "view": "FULL",
-        "sort": "PRICE"
-    }
-    headers = {"Authorization": "Bearer " + access_token}
-    response = requests.get(url, params=params, headers=headers)
-    if response.status_code == 200:
-        return response.json()["data"]
-    else:
-        print("Failed to fetch hotels:", response.content)
-        return []
+# Create an S3 client
+s3 = session.client('s3')
 
+# Download the file from S3
+s3.download_file(S3_BUCKET_NAME, 'coords.csv', 'coords.csv')
 
-def zip_to_lat_long(zip_code):
-    api_key = os.environ.get('GOOGLE_API_KEY')
-    url = f"https://maps.googleapis.com/maps/api/geocode/json?address={zip_code}&key={api_key}"
-    response = requests.get(url)
-    if response.status_code == 200:
-        res = response.json()
-        if res['status'] == 'OK':
-            lat = res['results'][0]['geometry']['location']['lat']
-            lng = res['results'][0]['geometry']['location']['lng']
-            return lat, lng
-    print(f"Failed to fetch lat-long for zip code {zip_code}:", response.content)
-    return None, None
+# Load the coordinates
+df = pd.read_csv('coords.csv', header=None, names=['Latitude', 'Longitude'])
 
+# Convert coordinates to decimal
+df['Latitude'] = df['Latitude'].apply(convert_to_decimal)
+df['Longitude'] = df['Longitude'].apply(lambda x: convert_to_decimal(x, True))
 
-def process_zip_codes(zip_codes):
-    api_key = os.environ.get('AMADEUS_API_KEY')
-    api_secret = os.environ.get('AMADEUS_API_SECRET')
-    hotel_details = []
-    for zip_code in zip_codes:
-        zip_str = zip_code[0]
-        lat, lng = zip_to_lat_long(zip_str)
-        if lat and lng:
-            hotels = fetch_hotels(api_key, api_secret, lat, lng)
-            if hotels:
-                hotels = sorted(hotels, key=lambda x: x['offers'][0]['price']['total'])
-                lowest_price = hotels[0]['offers'][0]['price']['total']
-                highest_price = hotels[-1]['offers'][0]['price']['total']
-                median_price = hotels[len(hotels) // 2]['offers'][0]['price']['total']
-                highest_price_name = hotels[-1]['hotel']['name']
-                hotel_details.append(
-                    (highest_price, lowest_price, median_price, highest_price_name))
-            else:
-                print("No hotels found for zip code:", zip_str)
-    return hotel_details
+# Obtain the access token
+token_url = "https://api.amadeus.com/v1/security/oauth2/token"
+token_data = {
+  'grant_type': 'client_credentials',
+  'client_id': AMADEUS_API_KEY,
+  'client_secret': AMADEUS_API_SECRET
+}
+token_res = requests.post(token_url, data=token_data)
+token = token_res.json()['access_token']
 
+# Prepare the output data
+output_data = []
 
-def read_zip_codes():
-    with open('zips.csv', 'r', encoding='utf_8_sig') as file:
-        reader = csv.reader(file)
-        return list(reader)
+# Iterate over each row in the DataFrame
+for _, row in df.iterrows():
+  latitude, longitude = row['Latitude'], row['Longitude']
 
+  # Call the Amadeus hotel list API
+  hotel_list_url = f"https://api.amadeus.com/v1/reference-data/locations/hotels/by-geocode?latitude={latitude}&longitude={longitude}&radius={RADIUS_MILES}&radiusUnit=MILE"
+  hotel_list_res = requests.get(hotel_list_url,
+                                headers={'Authorization': f'Bearer {token}'})
+  hotel_list_data = hotel_list_res.json()
 
-def main():
-    bucket_name = 'marinasdatabase'
-    download_from_aws('zips.csv', 'zips.csv', bucket_name)
-    zip_codes = read_zip_codes()
-    hotel_details = process_zip_codes(zip_codes)
-    with open('hoteldata.csv', 'w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(["Highest Price", "Lowest Price", "Median Price", "Highest Price Hotel"])
-        writer.writerows(hotel_details)
-    upload_to_aws('hoteldata.csv', bucket_name, 'hoteldata.csv')
+  # Extract the hotel IDs
+  hotel_ids = [hotel['hotelId'] for hotel in hotel_list_data['data']]
 
+  # Call the Amadeus hotel search API
+  hotel_search_url = f"https://api.amadeus.com/v3/shopping/hotel-offers?hotelIds={','.join(hotel_ids)}&adults=1&roomQuantity=1&paymentPolicy=NONE&includeClosed=true&bestRateOnly=true"
+  hotel_search_res = requests.get(hotel_search_url,
+                                  headers={'Authorization': f'Bearer {token}'})
+  hotel_search_data = hotel_search_res.json()
 
-if __name__ == "__main__":
-    main()
+  # Extract the hotel prices
+  prices = []
+  for hotel in hotel_search_data['data']:
+    if hotel['available'] and 'offers' in hotel:
+      price = float(hotel['offers'][0]['price']['base'])
+      prices.append(price)
+
+  if prices:
+    # Calculate the highest, lowest, and median prices
+    highest_price = max(prices)
+    lowest_price = min(prices)
+    median_price = median(prices)
+
+    # Find the name of the highest priced hotel
+    highest_priced_hotel = next(
+      hotel['hotel']['name'] for hotel in hotel_search_data['data']
+      if hotel['available'] and 'offers' in hotel
+      and float(hotel['offers'][0]['price']['base']) == highest_price)
+
+    # Add the data to the output
+    output_data.append({
+      'latitude': latitude,
+      'longitude': longitude,
+      'highest_price': highest_price,
+      'lowest_price': lowest_price,
+      'median_price': median_price,
+      'highest_priced_hotel': highest_priced_hotel
+    })
+
+# Convert the output data to a DataFrame
+output_df = pd.DataFrame(output_data)
+
+# Save the output data to a CSV file
+output_df.to_csv('demos.csv', index=False)
+
+# Upload the file to S3
+s3.upload_file('demos.csv', S3_BUCKET_NAME, 'demos.csv')
