@@ -113,7 +113,7 @@ for i, (_, row) in enumerate(df.iterrows()):
 
     closest_airport_code = airport_search_data['data'][0]['iataCode']
 
-    hotel_list_url = f"https://api.amadeus.com/v1/reference-data/locations/hotels/by-city?cityCode={closest_airport_code}&radius={RADIUS_MILES}&radiusUnit=MILE&hotelSource=ALL"
+    hotel_list_url = f"https://api.amadeus.com/v1/reference-data/locations/pois/by-square?north={latitude+RADIUS_MILES}&west={longitude-RADIUS_MILES}&south={latitude-RADIUS_MILES}&east={longitude+RADIUS_MILES}"
     hotel_list_res = requests.get(hotel_list_url,
                                   headers={'Authorization': f'Bearer {token}'})
     if hotel_list_res.status_code != 200:
@@ -131,7 +131,7 @@ for i, (_, row) in enumerate(df.iterrows()):
     hotel_list_data = hotel_list_res.json()
 
     hotel_ids = [
-        hotel.get('hotelId', '') for hotel in hotel_list_data.get('data', [])
+        hotel.get('id', '') for hotel in hotel_list_data.get('data', [])
     ]
 
     hotel_search_url = f"https://api.amadeus.com/v3/shopping/hotel-offers?hotelIds={','.join(hotel_ids)}&adults=1&roomQuantity=1&paymentPolicy=NONE&includeClosed=true&bestRateOnly=true"
@@ -154,8 +154,8 @@ for i, (_, row) in enumerate(df.iterrows()):
     prices = []
     for hotel in hotel_search_data.get('data', []):
         if hotel.get('available') and 'offers' in hotel and 'price' in hotel[
-            'offers'][0] and 'base' in hotel['offers'][0]['price']:
-            price = float(hotel['offers'][0]['price']['base'])
+            'offers'][0] and 'total' in hotel['offers'][0]['price']:
+            price = float(hotel['offers'][0]['price']['total'])
             prices.append(price)
 
     if prices:
@@ -166,8 +166,8 @@ for i, (_, row) in enumerate(df.iterrows()):
         highest_priced_hotel = next(
             (hotel['hotel']['name'] for hotel in hotel_search_data.get('data', [])
              if hotel.get('available') and 'offers' in hotel and 'price' in
-             hotel['offers'][0] and 'base' in hotel['offers'][0]['price']
-             and float(hotel['offers'][0]['price']['base']) == highest_price), 'N/A')
+             hotel['offers'][0] and 'total' in hotel['offers'][0]['price']
+             and float(hotel['offers'][0]['price']['total']) == highest_price), 'N/A')
 
         output_data.append({
             'latitude': latitude,
