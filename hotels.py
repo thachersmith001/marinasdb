@@ -3,6 +3,7 @@ import pandas as pd
 import requests
 import boto3
 from statistics import median
+import time
 
 # Function to convert degrees and minutes to decimal degrees
 def convert_to_decimal(coord, is_longitude=False):
@@ -71,8 +72,15 @@ token = token_res.json().get('access_token', '')
 # Prepare the output data
 output_data = []
 
+# Get total number of rows for progress counter
+total_rows = df.shape[0]
+print(f"Total rows to process: {total_rows}")
+
+start_time = time.time()
+
 # Iterate over each row in the DataFrame
-for _, row in df.iterrows():
+for i, (_, row) in enumerate(df.iterrows()):
+    start_row_time = time.time()
     latitude, longitude = row['Latitude'], row['Longitude']
 
     # Call the Amadeus hotel list API
@@ -116,6 +124,14 @@ for _, row in df.iterrows():
             'median_price': median_price,
             'highest_priced_hotel': highest_priced_hotel
         })
+
+    end_row_time = time.time()
+    elapsed_row_time = end_row_time - start_row_time
+    elapsed_total_time = end_row_time - start_time
+    average_row_time = elapsed_total_time / (i + 1)
+    remaining_rows = total_rows - i - 1
+    remaining_time = average_row_time * remaining_rows
+    print(f"Processing row {i+1} of {total_rows}. Estimated remaining time: {remaining_time:.2f} seconds")
 
 # Convert the output data to a DataFrame
 output_df = pd.DataFrame(output_data)
