@@ -99,10 +99,10 @@ for i, (_, row) in enumerate(df.iterrows()):
     median_price = median(prices)
 
     highest_priced_hotel = next(
-      hotel['hotel']['name'] for hotel in hotel_search_data.get('data', [])
-      if hotel.get('available') and 'offers' in hotel and 'price' in
-      hotel['offers'][0] and 'base' in hotel['offers'][0]['price']
-      and float(hotel['offers'][0]['price']['base']) == highest_price, 'N/A')
+      (hotel['hotel']['name'] for hotel in hotel_search_data.get('data', [])
+       if hotel.get('available') and 'offers' in hotel and 'price' in
+       hotel['offers'][0] and 'base' in hotel['offers'][0]['price']
+       and float(hotel['offers'][0]['price']['base']) == highest_price), 'N/A')
 
     output_data.append({
       'latitude': latitude,
