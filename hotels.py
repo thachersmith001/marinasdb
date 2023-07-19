@@ -5,8 +5,11 @@ import boto3
 from statistics import median
 
 
-# Function to convert degrees and minutes to decimal degrees
 def convert_to_decimal(coord, is_longitude=False):
+  # If the coordinate is already a float, it's already in decimal format
+  if isinstance(coord, float):
+    return coord
+
   coord = coord.strip(
   )  # Remove any leading/trailing spaces from the entire coordinate
   parts = coord.split('° ')
