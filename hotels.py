@@ -4,40 +4,30 @@ import requests
 import boto3
 from statistics import median
 
-
+# Function to convert degrees and minutes to decimal degrees
 def convert_to_decimal(coord, is_longitude=False):
-  # If the coordinate is already a float, it's already in decimal format
-  if isinstance(coord, float):
-    return coord
-
-  coord = coord.strip(
-  )  # Remove any leading/trailing spaces from the entire coordinate
-  parts = coord.split('° ')
-  degrees = parts[0].strip()  # Remove any leading/trailing spaces
-
-  # Check if the coordinate includes seconds
-  if '"' in parts[1]:
-    minutes, seconds = parts[1].split("' ")
-    seconds = seconds.rstrip(
-      '"').strip()  # Remove " character and any leading/trailing spaces
-  else:
-    minutes = parts[1].rstrip(
-      "'").strip()  # Remove ' character and any leading/trailing spaces
-    seconds = "0"
-
-  try:
-    decimal_degrees = float(
-      degrees) + float(minutes) / 60 + float(seconds) / 3600
-  except ValueError:
-    print(f"Failed to convert coordinate: {coord}")
-    return None
-
-  # If it's longitude and in North America, make it negative
-  if is_longitude:
-    decimal_degrees *= -1
-
-  return decimal_degrees
-
+    # If the coordinate is already a float, it's already in decimal format
+    if isinstance(coord, float):
+        return coord
+    coord = coord.strip()  # Remove any leading/trailing spaces from the entire coordinate
+    parts = coord.split('° ')
+    degrees = parts[0].strip()  # Remove any leading/trailing spaces
+    # Check if the coordinate includes seconds
+    if '"' in parts[1]:
+        minutes, seconds = parts[1].split("' ")
+        seconds = seconds.rstrip('"').strip()  # Remove " character and any leading/trailing spaces
+    else:
+        minutes = parts[1].rstrip("'").strip()  # Remove ' character and any leading/trailing spaces
+        seconds = "0"
+    try:
+        decimal_degrees = float(degrees) + float(minutes) / 60 + float(seconds) / 3600
+    except ValueError:
+        print(f"Failed to convert coordinate: {coord}")
+        return None
+    # If it's longitude and in North America, make it negative
+    if is_longitude:
+        decimal_degrees *= -1
+    return decimal_degrees
 
 # Load the environment variables
 AMADEUS_API_KEY = os.getenv('AMADEUS_API_KEY')
@@ -71,64 +61,61 @@ df['Longitude'] = df['Longitude'].apply(lambda x: convert_to_decimal(x, True))
 # Obtain the access token
 token_url = "https://api.amadeus.com/v1/security/oauth2/token"
 token_data = {
-  'grant_type': 'client_credentials',
-  'client_id': AMADEUS_API_KEY,
-  'client_secret': AMADEUS_API_SECRET
+    'grant_type': 'client_credentials',
+    'client_id': AMADEUS_API_KEY,
+    'client_secret': AMADEUS_API_SECRET
 }
 token_res = requests.post(token_url, data=token_data)
-token = token_res.json()['access_token']
+token = token_res.json().get('access_token', '')
 
 # Prepare the output data
 output_data = []
 
 # Iterate over each row in the DataFrame
 for _, row in df.iterrows():
-  latitude, longitude = row['Latitude'], row['Longitude']
+    latitude, longitude = row['Latitude'], row['Longitude']
 
-  # Call the Amadeus hotel list API
-  hotel_list_url = f"https://api.amadeus.com/v1/reference-data/locations/hotels/by-geocode?latitude={latitude}&longitude={longitude}&radius={RADIUS_MILES}&radiusUnit=MILE"
-  hotel_list_res = requests.get(hotel_list_url,
-                                headers={'Authorization': f'Bearer {token}'})
-  hotel_list_data = hotel_list_res.json()
+    # Call the Amadeus hotel list API
+    hotel_list_url = f"https://api.amadeus.com/v1/reference-data/locations/hotels/by-geocode?latitude={latitude}&longitude={longitude}&radius={RADIUS_MILES}&radiusUnit=MILE"
+    hotel_list_res = requests.get(hotel_list_url, headers={'Authorization': f'Bearer {token}'})
+    hotel_list_data = hotel_list_res.json()
 
-  # Extract the hotel IDs
-  hotel_ids = [hotel['hotelId'] for hotel in hotel_list_data['data']]
+    # Extract the hotel IDs
+    hotel_ids = [hotel.get('hotelId', '') for hotel in hotel_list_data.get('data', [])]
 
-  # Call the Amadeus hotel search API
-  hotel_search_url = f"https://api.amadeus.com/v3/shopping/hotel-offers?hotelIds={','.join(hotel_ids)}&adults=1&roomQuantity=1&paymentPolicy=NONE&includeClosed=true&bestRateOnly=true"
-  hotel_search_res = requests.get(hotel_search_url,
-                                  headers={'Authorization': f'Bearer {token}'})
-  hotel_search_data = hotel_search_res.json()
+    # Call the Amadeus hotel search API
+    hotel_search_url = f"https://api.amadeus.com/v3/shopping/hotel-offers?hotelIds={','.join(hotel_ids)}&adults=1&roomQuantity=1&paymentPolicy=NONE&includeClosed=true&bestRateOnly=true"
+    hotel_search_res = requests.get(hotel_search_url, headers={'Authorization': f'Bearer {token}'})
+    hotel_search_data = hotel_search_res.json()
 
-  # Extract the hotel prices
-  prices = []
-  for hotel in hotel_search_data['data']:
-    if hotel['available'] and 'offers' in hotel and 'price' in hotel['offers'][
-        0] and 'base' in hotel['offers'][0]['price']:
-      price = float(hotel['offers'][0]['price']['base'])
-      prices.append(price)
+    # Extract the hotel prices
+    prices = []
+    for hotel in hotel_search_data.get('data', []):
+        if hotel.get('available') and 'offers' in hotel and 'price' in hotel['offers'][0] and 'base' in hotel['offers'][0]['price']:
+            price = float(hotel['offers'][0]['price']['base'])
+            prices.append(price)
 
-  if prices:
-    # Calculate the highest, lowest, and median prices
-    highest_price = max(prices)
-    lowest_price = min(prices)
-    median_price = median(prices)
+    if prices:
+        # Calculate the highest, lowest, and median prices
+        highest_price = max(prices)
+        lowest_price = min(prices)
+        median_price = median(prices)
 
-    # Find the name of the highest priced hotel
-    highest_priced_hotel = next(
-      hotel['hotel']['name'] for hotel in hotel_search_data['data']
-      if hotel['available'] and 'offers' in hotel
-      and float(hotel['offers'][0]['price']['base']) == highest_price)
+        # Find the name of the highest priced hotel
+        highest_priced_hotel = next(
+            hotel['hotel']['name'] for hotel in hotel_search_data.get('data', [])
+            if hotel.get('available') and 'offers' in hotel and 'price' in hotel['offers'][0] and 'base' in hotel['offers'][0]['price']
+            and float(hotel['offers'][0]['price']['base']) == highest_price)
 
-    # Add the data to the output
-    output_data.append({
-      'latitude': latitude,
-      'longitude': longitude,
-      'highest_price': highest_price,
-      'lowest_price': lowest_price,
-      'median_price': median_price,
-      'highest_priced_hotel': highest_priced_hotel
-    })
+        # Add the data to the output
+        output_data.append({
+            'latitude': latitude,
+            'longitude': longitude,
+            'highest_price': highest_price,
+            'lowest_price': lowest_price,
+            'median_price': median_price,
+            'highest_priced_hotel': highest_priced_hotel
+        })
 
 # Convert the output data to a DataFrame
 output_df = pd.DataFrame(output_data)
