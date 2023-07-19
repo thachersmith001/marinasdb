@@ -7,37 +7,40 @@ import time
 
 
 def convert_to_decimal(coord, is_longitude=False):
-  if isinstance(coord, float):
-    return coord
-  coord = coord.strip()
-  parts = coord.split('° ')
-  degrees = parts[0].strip()
-  if '"' in parts[1]:
-    minutes, seconds = parts[1].split("' ")
-    seconds = seconds.rstrip('"').strip()
-  else:
-    minutes = parts[1].rstrip("'").strip()
-    seconds = "0"
-  try:
-    decimal_degrees = float(
-      degrees) + float(minutes) / 60 + float(seconds) / 3600
-  except ValueError:
-    print(f"Failed to convert coordinate: {coord}")
-    return None
-  if is_longitude:
-    decimal_degrees *= -1
-  return decimal_degrees
+    if isinstance(coord, float):
+        return coord
+    coord = coord.strip()
+    parts = coord.split('° ')
+    degrees = parts[0].strip()
+    if '"' in parts[1]:
+        minutes, seconds = parts[1].split("' ")
+        seconds = seconds.rstrip('"').strip()
+    else:
+        minutes = parts[1].rstrip("'").strip()
+        seconds = "0"
+    try:
+        decimal_degrees = float(
+            degrees) + float(minutes) / 60 + float(seconds) / 3600
+    except ValueError:
+        print(f"Failed to convert coordinate: {coord}")
+        return None
+    if is_longitude:
+        decimal_degrees *= -1
+    return decimal_degrees
 
 
 def get_token():
-  token_url = "https://api.amadeus.com/v1/security/oauth2/token"
-  token_data = {
-    'grant_type': 'client_credentials',
-    'client_id': AMADEUS_API_KEY,
-    'client_secret': AMADEUS_API_SECRET
-  }
-  token_res = requests.post(token_url, data=token_data)
-  return token_res.json().get('access_token', '')
+    token_url = "https://api.amadeus.com/v1/security/oauth2/token"
+    token_data = {
+        'grant_type': 'client_credentials',
+        'client_id': AMADEUS_API_KEY,
+        'client_secret': AMADEUS_API_SECRET
+    }
+    token_res = requests.post(token_url, data=token_data)
+    if token_res.status_code != 200:
+        print(f"Failed to get token. HTTP status code: {token_res.status_code}")
+        return None
+    return token_res.json().get('access_token', '')
 
 
 AMADEUS_API_KEY = os.getenv('AMADEUS_API_KEY')
@@ -48,7 +51,7 @@ AWS_REGION = os.getenv('AWS_REGION')
 S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME')
 
 RADIUS_MILES = 15
-REQUEST_DELAY = 0.025  # Delay between requests to avoid hitting rate limit
+REQUEST_DELAY = 0.1  # Delay between requests to avoid hitting rate limit
 AIRPORT_SEARCH_RADIUS_KM = 80
 
 session = boto3.Session(aws_access_key_id=AWS_ACCESS_KEY_ID,
@@ -71,92 +74,130 @@ print(f"Total rows to process: {total_rows}")
 
 start_time = time.time()
 
+token = get_token()
+if not token:
+    print("Failed to get token. Exiting program.")
+    exit(1)
+
 for i, (_, row) in enumerate(df.iterrows()):
-  start_row_time = time.time()
-  latitude, longitude = row['Latitude'], row['Longitude']
+    start_row_time = time.time()
+    latitude, longitude = row['Latitude'], row['Longitude']
 
-  token = get_token()
-  airport_search_url = f"https://api.amadeus.com/v1/reference-data/locations/airports?latitude={latitude}&longitude={longitude}&radius={AIRPORT_SEARCH_RADIUS_KM}&page%5Blimit%5D=1&page%5Boffset%5D=0&sort=distance"
-  airport_search_res = requests.get(
-    airport_search_url, headers={'Authorization': f'Bearer {token}'})
-  airport_search_data = airport_search_res.json()
+    airport_search_url = f"https://api.amadeus.com/v1/reference-data/locations/airports?latitude={latitude}&longitude={longitude}&radius={AIRPORT_SEARCH_RADIUS_KM}&page%5Blimit%5D=1&page%5Boffset%5D=0&sort=distance"
+    airport_search_res = requests.get(
+        airport_search_url, headers={'Authorization': f'Bearer {token}'})
+    if airport_search_res.status_code != 200:
+        print(f"Error in airport search. HTTP status code: {airport_search_res.status_code}")
+        token = get_token()
+        output_data.append({
+            'latitude': latitude,
+            'longitude': longitude,
+            'highest_price': 'ERROR',
+            'lowest_price': 'ERROR',
+            'median_price': 'ERROR',
+            'highest_priced_hotel': 'ERROR'
+        })
+        continue
+    airport_search_data = airport_search_res.json()
 
-  if not airport_search_data['data']:
-    output_data.append({
-      'latitude': latitude,
-      'longitude': longitude,
-      'highest_price': 'NO AIR',
-      'lowest_price': 'NO AIR',
-      'median_price': 'NO AIR',
-      'highest_priced_hotel': 'NO AIR'
-    })
-    continue
+    if not airport_search_data['data']:
+        output_data.append({
+            'latitude': latitude,
+            'longitude': longitude,
+            'highest_price': 'NO AIR',
+            'lowest_price': 'NO AIR',
+            'median_price': 'NO AIR',
+            'highest_priced_hotel': 'NO AIR'
+        })
+        continue
 
-  closest_airport_code = airport_search_data['data'][0]['iataCode']
+    closest_airport_code = airport_search_data['data'][0]['iataCode']
 
-  token = get_token()
-  hotel_list_url = f"https://api.amadeus.com/v1/reference-data/locations/hotels/by-city?cityCode={closest_airport_code}&radius={RADIUS_MILES}&radiusUnit=MILE&hotelSource=ALL"
-  hotel_list_res = requests.get(hotel_list_url,
-                                headers={'Authorization': f'Bearer {token}'})
-  hotel_list_data = hotel_list_res.json()
-
-  hotel_ids = [
-    hotel.get('hotelId', '') for hotel in hotel_list_data.get('data', [])
-  ]
-
-  token = get_token()
-  hotel_search_url = f"https://api.amadeus.com/v3/shopping/hotel-offers?hotelIds={','.join(hotel_ids)}&adults=1&roomQuantity=1&paymentPolicy=NONE&includeClosed=true&bestRateOnly=true"
-  hotel_search_res = requests.get(hotel_search_url,
+    hotel_list_url = f"https://api.amadeus.com/v1/reference-data/locations/hotels/by-city?cityCode={closest_airport_code}&radius={RADIUS_MILES}&radiusUnit=MILE&hotelSource=ALL"
+    hotel_list_res = requests.get(hotel_list_url,
                                   headers={'Authorization': f'Bearer {token}'})
-  hotel_search_data = hotel_search_res.json()
+    if hotel_list_res.status_code != 200:
+        print(f"Error in hotel list. HTTP status code: {hotel_list_res.status_code}")
+        token = get_token()
+        output_data.append({
+            'latitude': latitude,
+            'longitude': longitude,
+            'highest_price': 'ERROR',
+            'lowest_price': 'ERROR',
+            'median_price': 'ERROR',
+            'highest_priced_hotel': 'ERROR'
+        })
+        continue
+    hotel_list_data = hotel_list_res.json()
 
-  prices = []
-  for hotel in hotel_search_data.get('data', []):
-    if hotel.get('available') and 'offers' in hotel and 'price' in hotel[
-        'offers'][0] and 'base' in hotel['offers'][0]['price']:
-      price = float(hotel['offers'][0]['price']['base'])
-      prices.append(price)
+    hotel_ids = [
+        hotel.get('hotelId', '') for hotel in hotel_list_data.get('data', [])
+    ]
 
-  if prices:
-    highest_price = max(prices)
-    lowest_price = min(prices)
-    median_price = median(prices)
+    hotel_search_url = f"https://api.amadeus.com/v3/shopping/hotel-offers?hotelIds={','.join(hotel_ids)}&adults=1&roomQuantity=1&paymentPolicy=NONE&includeClosed=true&bestRateOnly=true"
+    hotel_search_res = requests.get(hotel_search_url,
+                                    headers={'Authorization': f'Bearer {token}'})
+    if hotel_search_res.status_code != 200:
+        print(f"Error in hotel search. HTTP status code: {hotel_search_res.status_code}")
+        token = get_token()
+        output_data.append({
+            'latitude': latitude,
+            'longitude': longitude,
+            'highest_price': 'ERROR',
+            'lowest_price': 'ERROR',
+            'median_price': 'ERROR',
+            'highest_priced_hotel': 'ERROR'
+        })
+        continue
+    hotel_search_data = hotel_search_res.json()
 
-    highest_priced_hotel = next(
-      (hotel['hotel']['name'] for hotel in hotel_search_data.get('data', [])
-       if hotel.get('available') and 'offers' in hotel and 'price' in
-       hotel['offers'][0] and 'base' in hotel['offers'][0]['price']
-       and float(hotel['offers'][0]['price']['base']) == highest_price), 'N/A')
+    prices = []
+    for hotel in hotel_search_data.get('data', []):
+        if hotel.get('available') and 'offers' in hotel and 'price' in hotel[
+            'offers'][0] and 'base' in hotel['offers'][0]['price']:
+            price = float(hotel['offers'][0]['price']['base'])
+            prices.append(price)
 
-    output_data.append({
-      'latitude': latitude,
-      'longitude': longitude,
-      'highest_price': highest_price,
-      'lowest_price': lowest_price,
-      'median_price': median_price,
-      'highest_priced_hotel': highest_priced_hotel
-    })
-  else:
-    output_data.append({
-      'latitude': latitude,
-      'longitude': longitude,
-      'highest_price': 'N/A',
-      'lowest_price': 'N/A',
-      'median_price': 'N/A',
-      'highest_priced_hotel': 'N/A'
-    })
+    if prices:
+        highest_price = max(prices)
+        lowest_price = min(prices)
+        median_price = median(prices)
 
-  end_row_time = time.time()
-  elapsed_row_time = end_row_time - start_row_time
-  elapsed_total_time = end_row_time - start_time
-  average_row_time = elapsed_total_time / (i + 1)
-  remaining_rows = total_rows - i - 1
-  remaining_time = average_row_time * remaining_rows
-  print(
-    f"Processing row {i+1} of {total_rows}. Estimated remaining time: {remaining_time//60:.0f} minutes {remaining_time%60:.0f} seconds"
-  )
+        highest_priced_hotel = next(
+            (hotel['hotel']['name'] for hotel in hotel_search_data.get('data', [])
+             if hotel.get('available') and 'offers' in hotel and 'price' in
+             hotel['offers'][0] and 'base' in hotel['offers'][0]['price']
+             and float(hotel['offers'][0]['price']['base']) == highest_price), 'N/A')
 
-  time.sleep(REQUEST_DELAY)
+        output_data.append({
+            'latitude': latitude,
+            'longitude': longitude,
+            'highest_price': highest_price,
+            'lowest_price': lowest_price,
+            'median_price': median_price,
+            'highest_priced_hotel': highest_priced_hotel
+        })
+    else:
+        output_data.append({
+            'latitude': latitude,
+            'longitude': longitude,
+            'highest_price': 'N/A',
+            'lowest_price': 'N/A',
+            'median_price': 'N/A',
+            'highest_priced_hotel': 'N/A'
+        })
+
+    end_row_time = time.time()
+    elapsed_row_time = end_row_time - start_row_time
+    elapsed_total_time = end_row_time - start_time
+    average_row_time = elapsed_total_time / (i + 1)
+    remaining_rows = total_rows - i - 1
+    remaining_time = average_row_time * remaining_rows
+    print(
+        f"Processing row {i+1} of {total_rows}. Estimated remaining time: {remaining_time//60:.0f} minutes {remaining_time%60:.0f} seconds"
+    )
+
+    time.sleep(REQUEST_DELAY)
 
 output_df = pd.DataFrame(output_data)
 
