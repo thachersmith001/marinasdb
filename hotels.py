@@ -6,7 +6,6 @@ from statistics import median
 import time
 
 
-# Function to convert degrees and minutes to decimal degrees
 def convert_to_decimal(coord, is_longitude=False):
   if isinstance(coord, float):
     return coord
@@ -38,6 +37,7 @@ AWS_REGION = os.getenv('AWS_REGION')
 S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME')
 
 RADIUS_MILES = 25
+REQUEST_DELAY = 0.025  # Delay between requests to avoid hitting rate limit
 
 session = boto3.Session(aws_access_key_id=AWS_ACCESS_KEY_ID,
                         aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
@@ -131,6 +131,9 @@ for i, (_, row) in enumerate(df.iterrows()):
   print(
     f"Processing row {i+1} of {total_rows}. Estimated remaining time: {remaining_time//60:.0f} minutes {remaining_time%60:.0f} seconds"
   )
+
+  # Delay between requests to avoid hitting rate limit
+  time.sleep(REQUEST_DELAY)
 
 output_df = pd.DataFrame(output_data)
 
