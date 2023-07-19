@@ -103,7 +103,8 @@ for _, row in df.iterrows():
   # Extract the hotel prices
   prices = []
   for hotel in hotel_search_data['data']:
-    if hotel['available'] and 'offers' in hotel:
+    if hotel['available'] and 'offers' in hotel and 'price' in hotel['offers'][
+        0] and 'base' in hotel['offers'][0]['price']:
       price = float(hotel['offers'][0]['price']['base'])
       prices.append(price)
 
