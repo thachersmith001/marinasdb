@@ -5,7 +5,6 @@ import os
 import time
 from datetime import datetime
 
-# Using Heroku environment variables for AWS credentials
 AWS_ACCESS_KEY = os.environ.get('AWS_ACCESS_KEY_ID')
 AWS_SECRET_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
 BUCKET_NAME = os.environ.get('S3_BUCKET_NAME')
@@ -17,6 +16,7 @@ def preprocess_data(data):
     data['Slip Scarcity'] = data['# of registered vessels'] / data['# of slips per county']
     data['Relative Population Growth'] = data['county population growth (over 10 years)'] / data['county population']
     data['Home Value to Income Ratio'] = data['median home value'] / data['average household income']
+    data['5 year cagr for registered vessels'] = data['5 year cagr for registered vessels']
 
     data.drop(columns=['county name', '# of registered vessels', '# of slips per county', 'county population', 'county population growth (over 10 years)', 'median home value', 'average household income'], inplace=True)
 
