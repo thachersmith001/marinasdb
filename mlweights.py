@@ -59,7 +59,7 @@ def gradient_descent(data, initial_weights=None, learning_rate=0.01, decay_rate=
     
     return weights
 
-def multiple_starts_gd(data, num_starts=50):
+def multiple_starts_gd(data, num_starts=10000): # Changed from 100 to 10,000
     accumulated_weights = np.zeros(data.shape[1])
     
     for _ in range(num_starts):
@@ -76,7 +76,7 @@ def optimize_weights():
     data = preprocess_data(data)
     
     start_time = time.time()
-    weights = multiple_starts_gd(data.to_numpy(), num_starts=100)
+    weights = multiple_starts_gd(data.to_numpy())
     elapsed_time = time.time() - start_time
 
     hours, remainder = divmod(elapsed_time, 3600)
