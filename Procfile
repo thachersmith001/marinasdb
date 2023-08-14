@@ -1,1 +1,1 @@
-worker: python mlweights.py
+worker: python geneticweights.py
