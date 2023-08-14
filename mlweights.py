@@ -1,10 +1,7 @@
-from flask import Flask, jsonify
 import boto3
 import pandas as pd
 import numpy as np
 import time
-
-app = Flask(__name__)
 
 AWS_ACCESS_KEY = 'YOUR_AWS_ACCESS_KEY'
 AWS_SECRET_KEY = 'YOUR_AWS_SECRET_KEY'
@@ -16,23 +13,15 @@ s3 = boto3.client('s3',
 
 
 def preprocess_data(data):
-  data[
-    'Vessel Density'] = data['Registered Vessels'] / data['County Population']
-  data['Slip Scarcity'] = data['Registered Vessels'] / data['Number of Slips']
-  data['Relative Population Growth'] = data['County Population Growth'] / data[
-    'County Population']
-  data['Home Value to Income Ratio'] = data['Median Home Value'] / data[
-    'Average Household Income']
-
-  data.drop(columns=[
-    'Registered Vessels', 'Number of Slips', 'County Population',
-    'County Population Growth', 'Median Home Value', 'Average Household Income'
-  ],
-            inplace=True)
-
-  data = (data - data.mean()) / data.std()
-
-  return data
+  data['Vessel Density'] = data.iloc[:, 1] / data.iloc[:, 4]
+  data['Slip Scarcity'] = data.iloc[:, 1] / data.iloc[:, 3]
+  data['Relative Population Growth'] = data.iloc[:, 5] / data.iloc[:, 4]
+  data['Home Value to Income Ratio'] = data.iloc[:, 6] / data.iloc[:, 7]
+  data['Vessel Registration Growth'] = data.iloc[:, 2]
+  return data[[
+    'Vessel Density', 'Slip Scarcity', 'Relative Population Growth',
+    'Home Value to Income Ratio', 'Vessel Registration Growth'
+  ]]
 
 
 def compute_gradient(data, weights):
@@ -79,15 +68,14 @@ def multiple_starts_gd(data, num_starts=10):
   return best_weights
 
 
-@app.route('/optimize_weights', methods=['GET'])
 def optimize_weights():
   obj = s3.get_object(Bucket=BUCKET_NAME, Key='countydata.csv')
-  data = pd.read_csv(obj['Body']).iloc[:, 1:]
+  data = pd.read_csv(obj['Body'], header=None)
 
-  data = preprocess_data(data)
+  data_processed = preprocess_data(data)
 
   start_time = time.time()
-  weights = multiple_starts_gd(data.to_numpy())
+  weights = multiple_starts_gd(data_processed.to_numpy())
   elapsed_time = time.time() - start_time
 
   hours, remainder = divmod(elapsed_time, 3600)
@@ -99,11 +87,11 @@ def optimize_weights():
 
   s3.upload_file('weights.txt', BUCKET_NAME, 'weights.txt')
 
-  return jsonify({
+  print({
     'message':
     f'Optimization completed and weights saved to AWS. Time taken: {int(hours)}h {int(minutes)}m {int(seconds)}s'
   })
 
 
 if __name__ == '__main__':
-  app.run(debug=True)
+  optimize_weights()
