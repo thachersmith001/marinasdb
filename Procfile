@@ -1,1 +1,1 @@
-worker: python hotels.py
+worker: mlweights.py
