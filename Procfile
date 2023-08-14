@@ -1,1 +1,1 @@
-worker: mlweights.py
+worker: python mlweights.py
