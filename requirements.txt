@@ -2,8 +2,6 @@ Flask
 boto3
 pandas
 numpy
-matplotlib
-os
 csv
 sys
 requests
