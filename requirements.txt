@@ -3,3 +3,10 @@ boto3
 pandas
 numpy
 matplotlib
+os
+csv
+sys
+requests
+openai
+html2text
+botocore
