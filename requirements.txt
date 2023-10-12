@@ -2,8 +2,6 @@ Flask
 boto3
 pandas
 numpy
-csv
-sys
 requests
 openai
 html2text
