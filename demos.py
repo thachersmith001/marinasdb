@@ -6,7 +6,7 @@ import censusdata
 from botocore.exceptions import NoCredentialsError
 
 # Specify your state
-state = 'New York'
+state = 'North Carolina'
 
 # Specify AWS bucket and filenames
 bucket = 'marinasdatabase'
@@ -27,9 +27,9 @@ with open(input_file, 'r') as f_in:
     next(reader)  # skip header
     counties = list(set([row[0].replace('  ', ' ').strip().title() for row in reader]))  # Remove extra spaces and change county names to title case, also removing duplicates using 'set'
 
-# Fetch census data
+# Fetch census data. The state code for North Carolina is '37'
 data = censusdata.download('acs5', 2021,
-    censusdata.censusgeo([('state', '36'), ('county', '*')]),
+    censusdata.censusgeo([('state', '37'), ('county', '*')]),
     ['B01003_001E', 'B25077_001E', 'B19013_001E', 'B01002_001E'])  # population, median home value, household income, median age
 
 # Rename columns
