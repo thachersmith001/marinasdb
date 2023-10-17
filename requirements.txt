@@ -7,3 +7,4 @@ openai
 html2text
 botocore
 uszipcode
+censusdata
