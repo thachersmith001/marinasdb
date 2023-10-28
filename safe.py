@@ -1,11 +1,12 @@
+import os
 import boto3
 import pandas as pd
 import requests
 from lxml import etree
 
 # AWS S3 and Google Maps API configuration
-AWS_ACCESS_KEY = 'YOUR_AWS_ACCESS_KEY'
-AWS_SECRET_KEY = 'YOUR_AWS_SECRET_KEY'
+AWS_ACCESS_KEY = os.environ.get('AWS_ACCESS_KEY_ID')
+AWS_SECRET_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
 BUCKET_NAME = 'YOUR_BUCKET_NAME'
 GOOGLE_MAPS_API_KEY = 'YOUR_GOOGLE_MAPS_API_KEY'
 
