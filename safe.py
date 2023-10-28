@@ -7,8 +7,8 @@ from lxml import etree
 # AWS S3 and Google Maps API configuration
 AWS_ACCESS_KEY = os.environ.get('AWS_ACCESS_KEY_ID')
 AWS_SECRET_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
-BUCKET_NAME = 'YOUR_BUCKET_NAME'
-GOOGLE_MAPS_API_KEY = 'YOUR_GOOGLE_MAPS_API_KEY'
+BUCKET_NAME = os.environ.get('S3_BUCKET_NAME')
+GOOGLE_MAPS_API_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
 
 # Initialize S3 client
 s3 = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY, aws_secret_access_key=AWS_SECRET_KEY)
