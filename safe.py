@@ -41,20 +41,32 @@ def download_from_aws(bucket, s3_file, local_file):
 
 # Function to get address using Google Places API
 def get_address(marina_name, city, state):
-    API_KEY = os.environ.get('GOOGLE_PLACES_API_KEY')
-    base_url = "https://maps.googleapis.com/maps/api/place/findplacefromtext/json?"
-    params = {
-        "input": f"{marina_name} {city} {state}",
-        "inputtype": "textquery",
-        "fields": "formatted_address",
-        "key": API_KEY
-    }
-    response = requests.get(base_url, params=params)
-    json_response = response.json()
-    if json_response["status"] == "OK":
-        return json_response["candidates"][0]["formatted_address"]
-    else:
-        return None
+  GOOGLE_MAPS_API_URL = "https://maps.googleapis.com/maps/api/place/findplacefromtext/json"
+  API_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
+
+  # Construct the search query
+  query = f"{marina_name}, {city}, {state}"
+  params = {
+      "input": query,
+      "inputtype": "textquery",
+      "fields": "formatted_address",
+      "key": API_KEY
+  }
+
+  response = requests.get(GOOGLE_MAPS_API_URL, params=params)
+  data = response.json()
+
+  # Diagnostic: Print out the response status and any error messages
+  status = data.get('status', '')
+  error_message = data.get('error_message', '')
+  print(f"Status: {status}, Error: {error_message}")
+
+  # Extract the formatted address if available
+  if data['candidates']:
+      return data['candidates'][0]['formatted_address']
+  else:
+      return None
+
 
 # Download the CSV from AWS S3
 download_from_aws('marinasdatabase', 'marinas_rtf_corrected.csv', 'marinas_rtf_corrected.csv')
