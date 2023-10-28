@@ -1,103 +1,68 @@
-import os
-import csv
-import sys
 import boto3
+import pandas as pd
 import requests
-from botocore.exceptions import NoCredentialsError
+from lxml import etree
 
-# AWS S3 upload function
-def upload_to_aws(local_file, bucket, s3_file):
-    s3 = boto3.client(
-        's3',
-        aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
-        aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'))
-    try:
-        s3.upload_file(local_file, bucket, s3_file)
-        print("Upload Successful")
-        return True
-    except FileNotFoundError:
-        print("The file was not found")
-        return False
-    except NoCredentialsError:
-        print("Credentials not available")
-        return False
+# AWS S3 and Google Maps API configuration
+AWS_ACCESS_KEY = 'YOUR_AWS_ACCESS_KEY'
+AWS_SECRET_KEY = 'YOUR_AWS_SECRET_KEY'
+BUCKET_NAME = 'YOUR_BUCKET_NAME'
+GOOGLE_MAPS_API_KEY = 'YOUR_GOOGLE_MAPS_API_KEY'
 
-# AWS S3 download function
-def download_from_aws(bucket, s3_file, local_file):
-    s3 = boto3.client(
-        's3',
-        aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
-        aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'))
-    try:
-        s3.download_file(bucket, s3_file, local_file)
-        print("Download Successful")
-        return True
-    except FileNotFoundError:
-        print("The file was not found")
-        return False
-    except NoCredentialsError:
-        print("Credentials not available")
-        return False
+# Initialize S3 client
+s3 = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY, aws_secret_access_key=AWS_SECRET_KEY)
 
-# Function to get address using Google Places API
-def get_address(marina_name, city, state):
-  GOOGLE_MAPS_API_URL = "https://maps.googleapis.com/maps/api/place/findplacefromtext/json"
-  API_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
+# Download the Excel file from S3
+s3.download_file(BUCKET_NAME, 'Locations Master v0.xlsx', '/tmp/Locations Master v0.xlsx')
 
-  # Construct the search query
-  query = f"{marina_name}, {city}, {state}"
-  params = {
-      "input": query,
-      "inputtype": "textquery",
-      "fields": "formatted_address",
-      "key": API_KEY
-  }
+# Load the Excel file
+xls = pd.ExcelFile('/tmp/Locations Master v0.xlsx')
+sheet_names = xls.sheet_names
 
-  response = requests.get(GOOGLE_MAPS_API_URL, params=params)
-  data = response.json()
+# Function to geocode addresses using Google Maps API
+def geocode_address(address):
+    base_url = "https://maps.googleapis.com/maps/api/geocode/json"
+    response = requests.get(base_url, params={'address': address, 'key': GOOGLE_MAPS_API_KEY})
+    data = response.json()
+    if data['status'] == 'OK':
+        location = data['results'][0]['geometry']['location']
+        return location['lat'], location['lng']
+    else:
+        print(f"Failed to geocode address: {address}")
+        return None, None
 
-  # Diagnostic: Print out the response status and any error messages
-  status = data.get('status', '')
-  error_message = data.get('error_message', '')
-  print(f"Status: {status}, Error: {error_message}")
+# KML generation
+KML_NAMESPACE = "http://www.opengis.net/kml/2.2"
+KML = "{%s}" % KML_NAMESPACE
+NSMAP = {None: KML_NAMESPACE}
 
-  # Extract the formatted address if available
-  if data['candidates']:
-      return data['candidates'][0]['formatted_address']
-  else:
-      return None
+kml = etree.Element(KML + "kml", nsmap=NSMAP)
+document = etree.SubElement(kml, KML + "Document")
 
+for sheet_name in sheet_names:
+    data = xls.parse(sheet_name)
+    folder = etree.SubElement(document, KML + "Folder")
+    folder_name = etree.SubElement(folder, KML + "name")
+    folder_name.text = sheet_name
 
-# Download the CSV from AWS S3
-download_from_aws('marinasdatabase', 'marinas_rtf_corrected.csv', 'marinas_rtf_corrected.csv')
+    for _, row in data.iterrows():
+        lat, lon = geocode_address(row['Address'])
+        if lat and lon:
+            placemark = etree.SubElement(folder, KML + "Placemark")
+            placemark_name = etree.SubElement(placemark, KML + "name")
+            placemark_name.text = row['Marina Name']
 
-# Read marinas data from CSV
-with open('marinas_rtf_corrected.csv', 'r') as f:
-    reader = csv.reader(f)
-    next(reader)  # skip the header
-    marinas = list(reader)
+            description = etree.SubElement(placemark, KML + "description")
+            description.text = "Address: " + row['Address']
 
-# Initialize a counter
-counter = 0
+            point = etree.SubElement(placemark, KML + "Point")
+            coordinates = etree.SubElement(point, KML + "coordinates")
+            coordinates.text = f"{lon},{lat}"
 
-# Open the output CSV file
-with open('safeharbor.csv', 'w', newline='') as file:
-    writer = csv.writer(file)
-    writer.writerow(["Marina Name", "Address"])
+# Save the KML to a file
+kml_content = etree.tostring(kml, pretty_print=True, xml_declaration=True, encoding="UTF-8")
+with open('/tmp/marinas.kml', 'wb') as kml_file:
+    kml_file.write(kml_content)
 
-    for marina in marinas:
-        marina_name, city, state = marina
-        address = get_address(marina_name, city, state)
-
-        # Write the extracted data to the CSV
-        writer.writerow([marina_name, address])
-
-        # Increment the counter and print the progress
-        counter += 1
-        print(f"Processed {counter} out of {len(marinas)} marinas")
-
-# Upload the CSV to AWS S3
-upload_to_aws('safeharbor.csv', 'marinasdatabase', 'safeharbor.csv')
-
-# Exit the program
-sys.exit()
+# Upload the KML file back to S3
+s3.upload_file('/tmp/marinas.kml', BUCKET_NAME, 'marinas.kml')
