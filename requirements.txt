@@ -9,3 +9,4 @@ botocore
 uszipcode
 censusdata
 lxml
+openpyxl
