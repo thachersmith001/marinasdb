@@ -1,1 +1,1 @@
-worker: python demos.py
+worker: python safe.py
