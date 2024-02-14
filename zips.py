@@ -4,7 +4,6 @@ import sys
 import boto3
 from botocore.exceptions import NoCredentialsError
 from rusps import USPSApi, Address
-import requests
 
 # Function to integrate with USPS API using rusps
 def get_zip_code_from_usps(usps_api_key, address_line, city, state):

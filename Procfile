@@ -1,1 +1,1 @@
-worker: python safe.py
+worker: python zips.py
