@@ -10,3 +10,4 @@ uszipcode
 censusdata
 lxml
 openpyxl
+git+https://github.com/hansthompson/rusps.git#egg=rusps
