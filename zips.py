@@ -64,18 +64,21 @@ def download_from_aws(bucket, s3_file, local_file):
 def process_addresses():
     download_from_aws('marinasdatabase', 'zips.csv', 'zips.csv')
 
-    with open('zips.csv', mode='r', encoding='utf-8-sig') as infile, open('codedaddress.csv', mode='w', newline='', encoding='utf-8') as outfile:
-        reader = csv.reader(infile)
+    with open('zips.csv', mode='r', encoding='utf-8-sig') as infile:
+        rows = list(csv.reader(infile))
+        total_addresses = len(rows)
+
+    with open('codedaddress.csv', mode='w', newline='', encoding='utf-8') as outfile:
         writer = csv.writer(outfile)
         writer.writerow(["Address", "City", "State", "Zip Code"])
 
-        for row in reader:
+        for i, row in enumerate(rows, 1):
             if not row:  # Skip empty rows
                 continue
             address, city, state = row
             zip_code = get_zip_code_from_address(address, city, state)
             writer.writerow([address, city, state, zip_code])
-            print(f"Processed: {address}, {city}, {state} -> ZIP: {zip_code}")
+            print(f"Processed {i}/{total_addresses}: {address}, {city}, {state} -> ZIP: {zip_code}")
             time.sleep(1)  # Respect Nominatim's usage policy
 
     upload_to_aws('codedaddress.csv', 'marinasdatabase', 'codedaddress.csv')
