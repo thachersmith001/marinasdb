@@ -7,6 +7,5 @@ openai
 html2text
 botocore
 uszipcode
-censusdata
 lxml
 openpyxl
