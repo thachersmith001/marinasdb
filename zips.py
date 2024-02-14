@@ -8,23 +8,27 @@ from geopy.extra.rate_limiter import RateLimiter
 from botocore.exceptions import NoCredentialsError
 
 def get_zip_code_from_address(address, city, state):
-    geolocator = Nominatim(user_agent="ZipCodeFinder/1.0 (contact@example.com)")
-    geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1)  # Compliance with rate limit
+  geolocator = Nominatim(user_agent="ZipCodeFinder/1.0 (contact@example.com)")
+  geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1)  # Compliance with rate limit
 
-    full_address = f"{address}, {city}, {state}"
-    try:
-        location = geocode(full_address, exactly_one=True)
-        if location:
-            print(f"Debug: Found location for {full_address} -> {location.address}")
-            if location.raw.get('address', {}).get('postcode'):
-                return location.raw['address']['postcode']
-            else:
-                return "ZIP Code Not Found"
-        else:
-            return "Location Not Found"
-    except Exception as e:
-        print(f"Error during geocoding for {full_address}: {e}")
-        return "Geocoding Error"
+  full_address = f"{address}, {city}, {state}"
+  try:
+      location = geocode(full_address, exactly_one=True)
+      if location:
+          print(f"Debug: Found location for {full_address} -> {location.address}")
+          # More robust ZIP code extraction logic
+          address_components = location.raw.get('address', {})
+          postcode = address_components.get('postcode')
+          if postcode:
+              # Some responses may include a full postcode range; we attempt to extract the first part
+              return postcode.split(';')[0].split('-')[0].strip()
+          else:
+              return "ZIP Code Not Found"
+      else:
+          return "Location Not Found"
+  except Exception as e:
+      print(f"Error during geocoding for {full_address}: {e}")
+      return "Geocoding Error"
 
 def upload_to_aws(local_file, bucket, s3_file):
     s3 = boto3.client('s3', aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'), aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'))
