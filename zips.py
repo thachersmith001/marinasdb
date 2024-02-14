@@ -8,18 +8,22 @@ from geopy.extra.rate_limiter import RateLimiter
 from botocore.exceptions import NoCredentialsError
 
 def get_zip_code_from_address(address, city, state):
-    # Unique User-Agent for Nominatim compliance
-    geolocator = Nominatim(user_agent="ZipCodeFinder/1.0 (techdog313@gmail.com)")
-    geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1)  # Ensuring compliance with rate limit
+    geolocator = Nominatim(user_agent="ZipCodeFinder/1.0 (contact@example.com)")
+    geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1)  # Compliance with rate limit
 
+    full_address = f"{address}, {city}, {state}"
     try:
-        location = geocode(f"{address}, {city}, {state}", exactly_one=True)
-        if location and location.raw.get('address', {}).get('postcode'):
-            return location.raw['address']['postcode']
+        location = geocode(full_address, exactly_one=True)
+        if location:
+            print(f"Debug: Found location for {full_address} -> {location.address}")
+            if location.raw.get('address', {}).get('postcode'):
+                return location.raw['address']['postcode']
+            else:
+                return "ZIP Code Not Found"
         else:
-            return "ZIP Code Not Found"
+            return "Location Not Found"
     except Exception as e:
-        print(f"Error during geocoding: {e}")
+        print(f"Error during geocoding for {full_address}: {e}")
         return "Geocoding Error"
 
 def upload_to_aws(local_file, bucket, s3_file):
@@ -51,7 +55,7 @@ def download_from_aws(bucket, s3_file, local_file):
 def process_addresses():
     download_from_aws('marinasdatabase', 'zips.csv', 'zips.csv')
 
-    with open('zips.csv', mode='r') as infile, open('codedaddress.csv', mode='w', newline='') as outfile:
+    with open('zips.csv', mode='r', encoding='utf-8-sig') as infile, open('codedaddress.csv', mode='w', newline='', encoding='utf-8') as outfile:
         reader = csv.reader(infile)
         writer = csv.writer(outfile)
         writer.writerow(["Address", "City", "State", "Zip Code"])
@@ -63,7 +67,7 @@ def process_addresses():
             zip_code = get_zip_code_from_address(address, city, state)
             writer.writerow([address, city, state, zip_code])
             print(f"Processed: {address}, {city}, {state} -> ZIP: {zip_code}")
-            time.sleep(1)  # Ensure compliance with the rate limit
+            time.sleep(1)  # Compliance with the rate limit
 
     upload_to_aws('codedaddress.csv', 'marinasdatabase', 'codedaddress.csv')
     print("All addresses processed and uploaded.")
