@@ -15,13 +15,16 @@ def get_zip_code_from_address(address, city, state):
     try:
         location = geocode(full_address, exactly_one=True)
         if location:
-            print(f"Debug: Raw location data for {full_address}: {location.raw}")
-            address_components = location.raw.get('address', {})
-            postcode = address_components.get('postcode')
+            # Attempt to extract the ZIP code from the address components first
+            postcode = location.raw.get('address', {}).get('postcode')
             if postcode:
                 return postcode.split(';')[0].split('-')[0].strip()
+            # If not found, parse the display_name
             else:
-                print("ZIP Code Not Found in the detailed address components.")
+                display_name_parts = location.address.split(',')
+                for part in reversed(display_name_parts):
+                    if part.strip().isdigit():
+                        return part.strip()
                 return "ZIP Code Not Found"
         else:
             return "Location Not Found"
