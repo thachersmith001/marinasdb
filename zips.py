@@ -7,30 +7,33 @@ from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
 from botocore.exceptions import NoCredentialsError
 
-def get_zip_code_from_address(address, city, state):
-    geolocator = Nominatim(user_agent="ZipCodeFinder/1.0 (your_email@example.com)")
-    geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1)  # Ensuring compliance with rate limit
+def get_zip_code_from_address(address, city, state, retry=0):
+    geolocator = Nominatim(user_agent="ZipCodeFinder/1.0")
+    geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1)
 
     full_address = f"{address}, {city}, {state}"
     try:
         location = geocode(full_address, exactly_one=True)
         if location:
-            # Attempt to extract the ZIP code from the address components first
             postcode = location.raw.get('address', {}).get('postcode')
             if postcode:
                 return postcode.split(';')[0].split('-')[0].strip()
-            # If not found, parse the display_name
             else:
-                display_name_parts = location.address.split(',')
-                for part in reversed(display_name_parts):
+                # Extract from display_name as fallback
+                parts = location.address.split(',')
+                for part in parts[::-1]:
                     if part.strip().isdigit():
                         return part.strip()
                 return "ZIP Code Not Found"
         else:
             return "Location Not Found"
     except Exception as e:
-        print(f"Error during geocoding for {full_address}: {e}")
-        return "Geocoding Error"
+        if retry < 3:  # Simple retry logic
+            time.sleep(2)  # Wait for 2 seconds before retrying
+            return get_zip_code_from_address(address, city, state, retry+1)
+        else:
+            print(f"Error after retries for {full_address}: {e}")
+            return "Geocoding Error"
 
 def upload_to_aws(local_file, bucket, s3_file):
     s3 = boto3.client('s3', aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'), aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'))
@@ -73,7 +76,7 @@ def process_addresses():
             zip_code = get_zip_code_from_address(address, city, state)
             writer.writerow([address, city, state, zip_code])
             print(f"Processed: {address}, {city}, {state} -> ZIP: {zip_code}")
-            time.sleep(1)  # Ensure compliance with the rate limit
+            time.sleep(1)  # Respect Nominatim's usage policy
 
     upload_to_aws('codedaddress.csv', 'marinasdatabase', 'codedaddress.csv')
     print("All addresses processed and uploaded.")
