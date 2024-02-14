@@ -8,29 +8,26 @@ from geopy.extra.rate_limiter import RateLimiter
 from botocore.exceptions import NoCredentialsError
 
 def get_zip_code_from_address(address, city, state):
-  geolocator = Nominatim(user_agent="ZipCodeFinder/1.0 (contact@example.com)")
-  geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1)  # Compliance with rate limit
+    geolocator = Nominatim(user_agent="ZipCodeFinder/1.0 (your_email@example.com)")
+    geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1)  # Ensuring compliance with rate limit
 
-  full_address = f"{address}, {city}, {state}"
-  try:
-      location = geocode(full_address, exactly_one=True)
-      if location:
-          # Debugging: print the raw location data
-          print(f"Debug: Raw location data for {full_address}: {location.raw}")
-
-          print(f"Debug: Found location for {full_address} -> {location.address}")
-          address_components = location.raw.get('address', {})
-          postcode = address_components.get('postcode')
-          if postcode:
-              return postcode.split(';')[0].split('-')[0].strip()
-          else:
-              return "ZIP Code Not Found"
-      else:
-          return "Location Not Found"
-  except Exception as e:
-      print(f"Error during geocoding for {full_address}: {e}")
-      return "Geocoding Error"
-
+    full_address = f"{address}, {city}, {state}"
+    try:
+        location = geocode(full_address, exactly_one=True)
+        if location:
+            print(f"Debug: Raw location data for {full_address}: {location.raw}")
+            address_components = location.raw.get('address', {})
+            postcode = address_components.get('postcode')
+            if postcode:
+                return postcode.split(';')[0].split('-')[0].strip()
+            else:
+                print("ZIP Code Not Found in the detailed address components.")
+                return "ZIP Code Not Found"
+        else:
+            return "Location Not Found"
+    except Exception as e:
+        print(f"Error during geocoding for {full_address}: {e}")
+        return "Geocoding Error"
 
 def upload_to_aws(local_file, bucket, s3_file):
     s3 = boto3.client('s3', aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'), aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'))
@@ -73,7 +70,7 @@ def process_addresses():
             zip_code = get_zip_code_from_address(address, city, state)
             writer.writerow([address, city, state, zip_code])
             print(f"Processed: {address}, {city}, {state} -> ZIP: {zip_code}")
-            time.sleep(1)  # Compliance with the rate limit
+            time.sleep(1)  # Ensure compliance with the rate limit
 
     upload_to_aws('codedaddress.csv', 'marinasdatabase', 'codedaddress.csv')
     print("All addresses processed and uploaded.")
