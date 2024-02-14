@@ -15,12 +15,13 @@ def get_zip_code_from_address(address, city, state):
   try:
       location = geocode(full_address, exactly_one=True)
       if location:
+          # Debugging: print the raw location data
+          print(f"Debug: Raw location data for {full_address}: {location.raw}")
+
           print(f"Debug: Found location for {full_address} -> {location.address}")
-          # More robust ZIP code extraction logic
           address_components = location.raw.get('address', {})
           postcode = address_components.get('postcode')
           if postcode:
-              # Some responses may include a full postcode range; we attempt to extract the first part
               return postcode.split(';')[0].split('-')[0].strip()
           else:
               return "ZIP Code Not Found"
@@ -29,6 +30,7 @@ def get_zip_code_from_address(address, city, state):
   except Exception as e:
       print(f"Error during geocoding for {full_address}: {e}")
       return "Geocoding Error"
+
 
 def upload_to_aws(local_file, bucket, s3_file):
     s3 = boto3.client('s3', aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'), aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'))
