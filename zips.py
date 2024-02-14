@@ -1,28 +1,25 @@
 import os
 import csv
 import sys
+import time
 import boto3
-from botocore.exceptions import NoCredentialsError
 from geopy.geocoders import Nominatim
-from geopy.exc import GeocoderTimedOut, GeocoderUnavailable
+from geopy.extra.rate_limiter import RateLimiter
+from botocore.exceptions import NoCredentialsError
 
 def get_zip_code_from_address(address, city, state):
-    geolocator = Nominatim(user_agent="myGeocoder")
+    # Unique User-Agent for Nominatim compliance
+    geolocator = Nominatim(user_agent="ZipCodeFinder/1.0 (techdog313@gmail.com)")
+    geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1)  # Ensuring compliance with rate limit
+
     try:
-        location = geolocator.geocode(f"{address}, {city}, {state}", exactly_one=True)
-        if location:
-            # Attempt to extract the ZIP code from the address
-            address_parts = location.address.split(',')
-            # The ZIP code is typically towards the end of the address
-            zip_code = [part.strip() for part in address_parts if part.strip().isdigit()]
-            if zip_code:
-                return zip_code[-1]  # Return the last numeric part which is likely the ZIP code
-            else:
-                return "ZIP Code Not Found"
+        location = geocode(f"{address}, {city}, {state}", exactly_one=True)
+        if location and location.raw.get('address', {}).get('postcode'):
+            return location.raw['address']['postcode']
         else:
-            return "Location Not Found"
-    except (GeocoderTimedOut, GeocoderUnavailable) as e:
-        print(f"Geocoding error: {e}")
+            return "ZIP Code Not Found"
+    except Exception as e:
+        print(f"Error during geocoding: {e}")
         return "Geocoding Error"
 
 def upload_to_aws(local_file, bucket, s3_file):
@@ -66,6 +63,7 @@ def process_addresses():
             zip_code = get_zip_code_from_address(address, city, state)
             writer.writerow([address, city, state, zip_code])
             print(f"Processed: {address}, {city}, {state} -> ZIP: {zip_code}")
+            time.sleep(1)  # Ensure compliance with the rate limit
 
     upload_to_aws('codedaddress.csv', 'marinasdatabase', 'codedaddress.csv')
     print("All addresses processed and uploaded.")
