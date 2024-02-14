@@ -2,40 +2,28 @@ import os
 import csv
 import sys
 import boto3
-import requests
-from xml.etree import ElementTree as ET
 from botocore.exceptions import NoCredentialsError
+from geopy.geocoders import Nominatim
+from geopy.exc import GeocoderTimedOut, GeocoderUnavailable
 
-def get_zip_code_from_usps(address, city, state):
-    user_id = os.environ.get('USPS_API_KEY')
-    url = "https://secure.shippingapis.com/ShippingAPI.dll"
-    xml_request = f"""<ZipCodeLookupRequest USERID="{user_id}">
-        <Address ID="0">
-            <Address1></Address1>
-            <Address2>{address}</Address2>
-            <City>{city}</City>
-            <State>{state}</State>
-        </Address>
-    </ZipCodeLookupRequest>"""
-
-    params = {'API': 'ZipCodeLookup', 'XML': xml_request}
-    response = requests.get(url, params=params)
-    if response.status_code == 200:
-        try:
-            root = ET.fromstring(response.content)
-            zip_code_element = root.find('.//Zip5')
-            if zip_code_element is not None:
-                return zip_code_element.text
+def get_zip_code_from_address(address, city, state):
+    geolocator = Nominatim(user_agent="myGeocoder")
+    try:
+        location = geolocator.geocode(f"{address}, {city}, {state}", exactly_one=True)
+        if location:
+            # Attempt to extract the ZIP code from the address
+            address_parts = location.address.split(',')
+            # The ZIP code is typically towards the end of the address
+            zip_code = [part.strip() for part in address_parts if part.strip().isdigit()]
+            if zip_code:
+                return zip_code[-1]  # Return the last numeric part which is likely the ZIP code
             else:
-                # Log the entire response to help diagnose the issue
-                print(f"Zip5 element not found in USPS response for {address}, {city}, {state}. Response XML: {response.content}")
-                return "Error: Zip5 not found"
-        except ET.ParseError as e:
-            print(f"Error parsing USPS response XML: {e}")
-            return "Error: XML Parse Error"
-    else:
-        print(f"Failed to get response from USPS API, status code: {response.status_code}")
-        return "Error: API Request Failed"
+                return "ZIP Code Not Found"
+        else:
+            return "Location Not Found"
+    except (GeocoderTimedOut, GeocoderUnavailable) as e:
+        print(f"Geocoding error: {e}")
+        return "Geocoding Error"
 
 def upload_to_aws(local_file, bucket, s3_file):
     s3 = boto3.client('s3', aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'), aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'))
@@ -75,12 +63,9 @@ def process_addresses():
             if not row:  # Skip empty rows
                 continue
             address, city, state = row
-            zip_code = get_zip_code_from_usps(address, city, state)
-            if not zip_code.startswith("Error"):
-                writer.writerow([address, city, state, zip_code])
-                print(f"Processed: {address}, {city}, {state} -> ZIP: {zip_code}")
-            else:
-                print(f"Error processing: {address}, {city}, {state} - {zip_code}")
+            zip_code = get_zip_code_from_address(address, city, state)
+            writer.writerow([address, city, state, zip_code])
+            print(f"Processed: {address}, {city}, {state} -> ZIP: {zip_code}")
 
     upload_to_aws('codedaddress.csv', 'marinasdatabase', 'codedaddress.csv')
     print("All addresses processed and uploaded.")

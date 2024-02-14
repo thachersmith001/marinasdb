@@ -9,3 +9,4 @@ botocore
 uszipcode
 lxml
 openpyxl
+geopy
