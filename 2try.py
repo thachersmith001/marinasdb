@@ -1,5 +1,6 @@
 import os
 import csv
+import time
 import boto3
 from geopy.geocoders import Nominatim
 from botocore.exceptions import NoCredentialsError
@@ -42,6 +43,8 @@ def validate_and_regeocode(input_file, output_file):
         for row in reader:
             address = f"{row['Address']}, {row['City']}, {row['State']}, {row['Zip']}, USA"
             try:
+                # Delay between requests to respect Nominatim's usage policy
+                time.sleep(1)  # Adjust as necessary based on Nominatim's guidelines
                 location = geolocator.geocode(address, exactly_one=True, addressdetails=True)
                 if location:
                     row['Lat'] = location.latitude
@@ -58,12 +61,13 @@ def validate_and_regeocode(input_file, output_file):
             print(f"Processed: {address} -> {row['Geocode Result']}, Debug Info: {row['Debug Info']}")
 
 if __name__ == "__main__":
-    bucket_name = 'marinasdatabase'
-    input_csv = 'addr.csv'
-    output_csv = 'validated.csv'
+    bucket_name = 'marinasdatabase'  # Example bucket name
+    input_csv = 'addr.csv'  # Example input CSV file name
+    output_csv = 'validated.csv'  # Example output CSV file name
     local_input_csv = '/tmp/addr.csv'
     local_output_csv = '/tmp/validated.csv'
 
+    # Ensure AWS S3 bucket and file names match your setup
     download_from_aws(bucket_name, input_csv, local_input_csv)
     validate_and_regeocode(local_input_csv, local_output_csv)
     upload_to_aws(local_output_csv, bucket_name, output_csv)
