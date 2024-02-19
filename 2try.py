@@ -29,43 +29,39 @@ def upload_to_aws(local_file, bucket, s3_file):
         print("Credentials not available")
         exit(1)
 
-def re_geocode_not_found(input_file, output_file):
-    geolocator = Nominatim(user_agent="ReGeocoderApp/1.0")
+def validate_and_regeocode(input_file, output_file):
+    geolocator = Nominatim(user_agent="ValidatorApp/1.0")
     geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1, max_retries=2)
 
     with open(input_file, mode='r', encoding='utf-8') as infile, open(output_file, mode='w', newline='', encoding='utf-8') as outfile:
-        reader = csv.reader(infile)
-        writer = csv.writer(outfile)
-        next(reader)  # Skip header
-        writer.writerow(["Address", "Latitude", "Longitude"])
+        reader = csv.DictReader(infile)
+        fieldnames = reader.fieldnames + ["Validated Lat", "Validated Lon"]
+        writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+        writer.writeheader()
 
         for row in reader:
-            address, lat, lon = row
-            if lat == "Not Found" or lon == "Not Found":
-                location = geocode(address)
-                if location:
-                    lat, lon = location.latitude, location.longitude
-                else:
-                    lat, lon = "Still Not Found", "Still Not Found"
-            writer.writerow([address, lat, lon])
-            print(f"Re-Processed: {address} -> Lat: {lat}, Long: {lon}")
+            full_address = f"{row['Address']}, {row['City']}, {row['State']}, {row['Zip']}, USA"
+            location = geocode(full_address)
+            if location:
+                row["Validated Lat"], row["Validated Lon"] = location.latitude, location.longitude
+            else:
+                row["Validated Lat"], row["Validated Lon"] = "Not Found", "Not Found"
+            writer.writerow(row)
+            print(f"Processed: {full_address} -> Lat: {row['Validated Lat']}, Lon: {row['Validated Lon']}")
 
 if __name__ == "__main__":
     bucket_name = 'marinasdatabase'
-    input_csv = 'geocoded.csv'
-    local_input_csv = '/tmp/geocoded.csv'  # Use a temp path for the input file
-    local_output_csv = '/tmp/2try.csv'     # Use a temp path for the output file
-
-    # Ensure the temp directory exists
-    os.makedirs(os.path.dirname(local_input_csv), exist_ok=True)
+    input_csv = 'addr.csv'
+    local_input_csv = '/mnt/data/addr.csv'
+    local_output_csv = '/mnt/data/validated.csv'
 
     # Download the input file from S3
     download_from_aws(bucket_name, input_csv, local_input_csv)
 
-    # Re-geocode addresses with "Not Found" coordinates
-    re_geocode_not_found(local_input_csv, local_output_csv)
+    # Validate and possibly re-geocode addresses
+    validate_and_regeocode(local_input_csv, local_output_csv)
 
-    # Upload the updated file back to S3
-    upload_to_aws(local_output_csv, bucket_name, '2try.csv')
+    # Upload the validated and corrected file back to S3
+    upload_to_aws(local_output_csv, bucket_name, 'validated.csv')
 
-    print("Re-geocoding complete and file uploaded.")
+    print("Validation and re-geocoding complete. Output uploaded to S3.")
