@@ -1,3 +1,4 @@
+import os
 import csv
 import boto3
 from geopy.geocoders import Nominatim
@@ -52,8 +53,11 @@ def re_geocode_not_found(input_file, output_file):
 if __name__ == "__main__":
     bucket_name = 'marinasdatabase'
     input_csv = 'geocoded.csv'
-    local_input_csv = 'geocoded.csv'  # Temporarily store file locally
-    local_output_csv = '2try.csv'  # Temporarily store file locally
+    local_input_csv = '/tmp/geocoded.csv'  # Use a temp path for the input file
+    local_output_csv = '/tmp/2try.csv'     # Use a temp path for the output file
+
+    # Ensure the temp directory exists
+    os.makedirs(os.path.dirname(local_input_csv), exist_ok=True)
 
     # Download the input file from S3
     download_from_aws(bucket_name, input_csv, local_input_csv)
