@@ -4,10 +4,11 @@ import time
 import boto3
 from geopy.geocoders import Nominatim
 from botocore.exceptions import NoCredentialsError
+from geopy.exc import GeocoderQueryError
 
-# Function to upload a file to an S3 bucket
 def upload_to_aws(local_file, bucket, s3_file):
-    s3 = boto3.client('s3', aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'], aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'])
+    s3 = boto3.client('s3', aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
+                      aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'])
     try:
         s3.upload_file(local_file, bucket, s3_file)
         print("Upload Successful")
@@ -18,9 +19,9 @@ def upload_to_aws(local_file, bucket, s3_file):
         print("Credentials not available")
         return False
 
-# Function to download a file from an S3 bucket
 def download_from_aws(bucket, s3_file, local_file):
-    s3 = boto3.client('s3', aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'], aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'])
+    s3 = boto3.client('s3', aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
+                      aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'])
     try:
         s3.download_file(bucket, s3_file, local_file)
         print("Download Successful")
@@ -31,15 +32,16 @@ def download_from_aws(bucket, s3_file, local_file):
         print("Credentials not available")
         return False
 
-# Function to validate geocode results against the intended address
-def is_valid_location(location, city, state):
-    # Ensure the location is within the specified city and state
-    address_components = location.raw.get('address', {})
-    return address_components.get('state', '') == state and address_components.get('city', '') == city
+def validate_state(location, input_state):
+    if location:
+        # Extract the state from the location's raw data
+        address_components = location.raw.get('address', {})
+        location_state = address_components.get('state', '').upper()
+        return location_state == input_state.upper()
+    return False
 
-# Main function to validate and potentially re-geocode addresses
 def validate_and_regeocode(input_file, output_file):
-    geolocator = Nominatim(user_agent="validate_and_regeocode")
+    geolocator = Nominatim(user_agent="validate_and_regeocode", timeout=10)
     with open(input_file, mode='r', encoding='utf-8') as infile, open(output_file, mode='w', newline='', encoding='utf-8') as outfile:
         reader = csv.DictReader(infile)
         fieldnames = reader.fieldnames + ['Geocode Result', 'Debug Info']
@@ -47,20 +49,19 @@ def validate_and_regeocode(input_file, output_file):
         writer.writeheader()
 
         for row in reader:
-            # Implement a respectful delay between requests to adhere to usage policy
-            time.sleep(1)
+            time.sleep(1)  # Respect Nominatim's request limit
             address = f"{row['Address']}, {row['City']}, {row['State']}, {row['Zip']}, USA"
             try:
-                location = geolocator.geocode(address, exactly_one=True, addressdetails=True)
-                if location and is_valid_location(location, row['City'], row['State']):
+                location = geolocator.geocode(address)
+                if location and validate_state(location, row['State']):
                     row['Lat'] = location.latitude
                     row['Lon'] = location.longitude
                     row['Geocode Result'] = 'Found'
-                    row['Debug Info'] = f"Lat: {location.latitude}, Lon: {location.longitude}"
+                    row['Debug Info'] = f"State Matched: {row['State']}"
                 else:
                     row['Geocode Result'] = 'Not Found'
-                    row['Debug Info'] = 'Address validation failed'
-            except Exception as e:
+                    row['Debug Info'] = 'State mismatch or no geocode result'
+            except GeocoderQueryError as e:
                 row['Geocode Result'] = 'Error'
                 row['Debug Info'] = str(e)
             writer.writerow(row)
