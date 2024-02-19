@@ -6,6 +6,7 @@ from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
 from botocore.exceptions import NoCredentialsError
 
+# Ensure all necessary modules are imported
 def download_from_aws(bucket, s3_file, local_file):
     s3 = boto3.client('s3', aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'), aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'))
     try:
@@ -38,33 +39,28 @@ def re_geocode_not_found(input_file, output_file):
 
         for row in reader:
             address, lat, lon = row
-            if lat == "Not Found" or lon == "Not Found":
-                try:
-                    location = geocode(address)
-                    if location:
-                        new_lat, new_lon = location.latitude, location.longitude
-                    else:
-                        new_lat, new_lon = "Still Not Found", "Still Not Found"
-                except Exception as e:
-                    print(f"Error re-geocoding {address}: {e}")
-                    new_lat, new_lon = "Error", "Error"
-            else:
-                new_lat, new_lon = lat, lon
-            writer.writerow([address, new_lat, new_lon])
-            print(f"Processed: {address} -> Lat: {new_lat}, Long: {new_lon}")
+            if lat in ["Not Found", "Error", "Still Not Found"] or lon in ["Not Found", "Error", "Still Not Found"]:
+                location = geocode(address)
+                if location:
+                    lat, lon = location.latitude, location.longitude
+                else:
+                    lat, lon = "Still Not Found", "Still Not Found"
+            writer.writerow([address, lat, lon])
+            print(f"Re-Processed: {address} -> Lat: {lat}, Long: {lon}")
 
 if __name__ == "__main__":
     bucket_name = 'marinasdatabase'
-    input_csv_path = '/mnt/data/geocoded.csv'  # Adjusted for the correct file path
-    output_csv_path = '/mnt/data/2try.csv'
+    input_csv = 'geocoded.csv'
+    local_input_csv = '/mnt/data/geocoded.csv'  # Local path for download
+    local_output_csv = '/mnt/data/2try.csv'     # Local path for the output file
 
-    # Adjust for the actual path if needed and ensure AWS credentials are set
-    download_from_aws(bucket_name, 'geocoded.csv', input_csv_path)
+    # Download the input file from S3
+    download_from_aws(bucket_name, input_csv, local_input_csv)
 
     # Re-geocode addresses with "Not Found" coordinates
-    re_geocode_not_found(input_csv_path, output_csv_path)
+    re_geocode_not_found(local_input_csv, local_output_csv)
 
     # Upload the updated file back to S3
-    upload_to_aws(output_csv_path, bucket_name, '2try.csv')
+    upload_to_aws(local_output_csv, bucket_name, '2try.csv')
 
     print("Re-geocoding complete and file uploaded.")
