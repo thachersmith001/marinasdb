@@ -4,7 +4,6 @@ import time
 import boto3
 from geopy.geocoders import Nominatim
 from botocore.exceptions import NoCredentialsError
-from geopy.exc import GeocoderQueryError
 
 def upload_to_aws(local_file, bucket, s3_file):
     s3 = boto3.client('s3', aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
@@ -33,15 +32,13 @@ def download_from_aws(bucket, s3_file, local_file):
         return False
 
 def validate_state(location, input_state):
-    if location:
-        # Extract the state from the location's raw data
-        address_components = location.raw.get('address', {})
-        location_state = address_components.get('state', '').upper()
-        return location_state == input_state.upper()
+    if location and 'address' in location.raw:
+        location_state = location.raw['address'].get('state', '')
+        return location_state.lower() == input_state.lower()
     return False
 
 def validate_and_regeocode(input_file, output_file):
-    geolocator = Nominatim(user_agent="validate_and_regeocode", timeout=10)
+    geolocator = Nominatim(user_agent="validate_and_regeocode")
     with open(input_file, mode='r', encoding='utf-8') as infile, open(output_file, mode='w', newline='', encoding='utf-8') as outfile:
         reader = csv.DictReader(infile)
         fieldnames = reader.fieldnames + ['Geocode Result', 'Debug Info']
@@ -52,16 +49,16 @@ def validate_and_regeocode(input_file, output_file):
             time.sleep(1)  # Respect Nominatim's request limit
             address = f"{row['Address']}, {row['City']}, {row['State']}, {row['Zip']}, USA"
             try:
-                location = geolocator.geocode(address)
+                location = geolocator.geocode(address, addressdetails=True)
                 if location and validate_state(location, row['State']):
                     row['Lat'] = location.latitude
                     row['Lon'] = location.longitude
                     row['Geocode Result'] = 'Found'
-                    row['Debug Info'] = f"State Matched: {row['State']}"
+                    row['Debug Info'] = 'State matched'
                 else:
                     row['Geocode Result'] = 'Not Found'
                     row['Debug Info'] = 'State mismatch or no geocode result'
-            except GeocoderQueryError as e:
+            except Exception as e:
                 row['Geocode Result'] = 'Error'
                 row['Debug Info'] = str(e)
             writer.writerow(row)
