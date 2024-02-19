@@ -1,1 +1,1 @@
-worker: python zips.py
+worker: python geocoder.py
