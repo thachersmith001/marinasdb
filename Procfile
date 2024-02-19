@@ -1,1 +1,1 @@
-worker: python geocoder.py
+worker: python 2try.py
