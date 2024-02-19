@@ -1,4 +1,6 @@
+import os
 import csv
+import sys
 import boto3
 from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
@@ -53,16 +55,16 @@ def re_geocode_not_found(input_file, output_file):
 
 if __name__ == "__main__":
     bucket_name = 'marinasdatabase'
-    input_csv = 'geocoded.csv'  # The file from S3 to re-process
-    output_csv = '/mnt/data/2try.csv'  # Local path for the output file
+    input_csv_path = '/mnt/data/geocoded.csv'  # Adjusted for the correct file path
+    output_csv_path = '/mnt/data/2try.csv'
 
-    # Download the input file from S3
-    download_from_aws(bucket_name, input_csv, output_csv)
+    # Adjust for the actual path if needed and ensure AWS credentials are set
+    download_from_aws(bucket_name, 'geocoded.csv', input_csv_path)
 
     # Re-geocode addresses with "Not Found" coordinates
-    re_geocode_not_found(output_csv, output_csv)
+    re_geocode_not_found(input_csv_path, output_csv_path)
 
     # Upload the updated file back to S3
-    upload_to_aws(output_csv, bucket_name, '2try.csv')
+    upload_to_aws(output_csv_path, bucket_name, '2try.csv')
 
     print("Re-geocoding complete and file uploaded.")
