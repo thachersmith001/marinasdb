@@ -5,6 +5,7 @@ from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
 from botocore.exceptions import NoCredentialsError
 
+
 def download_from_aws(bucket, s3_file, local_file):
     s3 = boto3.client('s3', aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'), aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'))
     try:
@@ -42,7 +43,7 @@ def validate_and_regeocode(input_file, output_file):
         for row in reader:
             full_address = f"{row['Address']}, {row['City']}, {row['State']}, {row['Zip']}, USA"
             location = geocode(full_address)
-            if location:
+            if location and location.address.find(row['City']) != -1 and location.address.find(row['State']) != -1:
                 row["Validated Lat"], row["Validated Lon"] = location.latitude, location.longitude
             else:
                 row["Validated Lat"], row["Validated Lon"] = "Not Found", "Not Found"
@@ -52,8 +53,8 @@ def validate_and_regeocode(input_file, output_file):
 if __name__ == "__main__":
     bucket_name = 'marinasdatabase'
     input_csv = 'addr.csv'
-    local_input_csv = '/mnt/data/addr.csv'
-    local_output_csv = '/mnt/data/validated.csv'
+    local_input_csv = 'addr_downloaded.csv'  # Temporarily store file locally with a different name to avoid conflicts
+    local_output_csv = 'validated.csv'
 
     # Download the input file from S3
     download_from_aws(bucket_name, input_csv, local_input_csv)
@@ -65,4 +66,3 @@ if __name__ == "__main__":
     upload_to_aws(local_output_csv, bucket_name, 'validated.csv')
 
     print("Validation and re-geocoding complete. Output uploaded to S3.")
-  
