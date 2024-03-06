@@ -37,14 +37,18 @@ def process_addresses(input_file, output_file):
         reader = csv.reader(infile)
         writer = csv.writer(outfile)
 
-        # Define headers for the output CSV explicitly
         headers = ["Address", "Zestimate", "PropertyZillowURL"]
         writer.writerow(headers)
+
+        address_count = 0  # Initialize the counter
 
         for row in reader:
             address = row[0]  # Directly use the first column as the address
             zestimate, url = get_zestimate(address)
             writer.writerow([address, zestimate, url])
+            address_count += 1  # Increment the counter
+
+        print(f"Processed {address_count} addresses.")  # Print the total number of addresses processed
 
 if __name__ == "__main__":
     bucket_name = 'marinasdatabase'  # Replace with your actual S3 bucket name
