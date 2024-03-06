@@ -36,7 +36,9 @@ def process_addresses(input_file, output_file):
     with open(input_file, mode='r', encoding='utf-8') as infile, open(output_file, mode='w', newline='', encoding='utf-8') as outfile:
         reader = csv.reader(infile)
         writer = csv.writer(outfile)
-        headers = next(reader) + ["Zestimate", "PropertyZillowURL"]
+
+        # Define headers for the output CSV explicitly
+        headers = ["Address", "Zestimate", "PropertyZillowURL"]
         writer.writerow(headers)
 
         for row in reader:
