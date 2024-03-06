@@ -1,1 +1,1 @@
-worker: python 2try.py
+worker: python z1ll0w.py
