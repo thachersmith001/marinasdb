@@ -9,6 +9,7 @@ def download_from_aws(s3_client, bucket, s3_file, local_file):
         print("Download Successful")
     except Exception as e:
         print(f"Error downloading from AWS: {e}")
+        raise  # Reraise the exception to make sure it's not silently failing
 
 def upload_to_aws(s3_client, local_file, bucket, s3_file):
     try:
@@ -16,6 +17,7 @@ def upload_to_aws(s3_client, local_file, bucket, s3_file):
         print("Upload Successful")
     except Exception as e:
         print(f"Error uploading to AWS: {e}")
+        raise  # Reraise the exception to ensure visibility of failure
 
 def get_zestimate(address):
     url = "https://zillow-working-api.p.rapidapi.com/byaddress"
@@ -43,15 +45,17 @@ def process_addresses(input_file, output_file):
         address_count = 0  # Initialize the counter
 
         for row in reader:
-            address = row[0]  # Directly use the first column as the address
+            address = row[0]
             zestimate, url = get_zestimate(address)
             writer.writerow([address, zestimate, url])
             address_count += 1  # Increment the counter
+            print(f"Processed address {address_count}: {address}")  # Print progress for each address
 
         print(f"Processed {address_count} addresses.")  # Print the total number of addresses processed
 
 if __name__ == "__main__":
-    bucket_name = 'marinasdatabase'  # Replace with your actual S3 bucket name
+    print("Script started.")
+    bucket_name = 'marinasdatabase'
     input_csv = 'addresses.csv'
     output_csv = 'zesty.csv'
     local_input_csv = '/tmp/addresses.csv'
@@ -63,3 +67,4 @@ if __name__ == "__main__":
     download_from_aws(s3_client, bucket_name, input_csv, local_input_csv)
     process_addresses(local_input_csv, local_output_csv)
     upload_to_aws(s3_client, local_output_csv, bucket_name, output_csv)
+    print("Script completed.")
